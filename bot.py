@@ -53,7 +53,7 @@ async def on_message(message):
                 return
 
             try:
-                response = await ask_ai(user_message)
+                response = await ask_ai(user_message, message.author.id)
                 await message.reply(response)
 
             except Exception as error:
@@ -74,7 +74,7 @@ async def ai(ctx, *, message):
     async with ctx.typing():
 
         try:
-            response = await ask_ai(message)
+            response = await ask_ai(message, ctx.author.id)
             await ctx.send(response)
 
         except Exception as error:
