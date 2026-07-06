@@ -76,21 +76,26 @@ async def ai(ctx, *, message):
     async with ctx.typing():
 
         try:
-    response = await ask_ai(message, ctx.author.id)
-    await ctx.send(response)
+            process_message(ctx.author.id, message)
 
-except Exception as error:
+            response = await ask_ai(message, ctx.author.id)
 
-    error_text = str(error)
+            await ctx.send(response)
 
-    if "insufficient_quota" in error_text:
-        await ctx.send(
-            "⚠️ Nexus AI is temporarily unavailable."
-        )
-    else:
-        await ctx.send(
-            f"⚠️ Error:\n```{error}```"
-        )
+        except Exception as error:
+
+            error_text = str(error)
+
+            if "insufficient_quota" in error_text:
+                await ctx.send(
+                    "⚠️ Nexus AI is temporarily unavailable."
+                )
+
+            else:
+                await ctx.send(
+                    f"⚠️ Error:\n```{error}```"
+                )
+                
 @bot.command()
 async def memory(ctx):
 
