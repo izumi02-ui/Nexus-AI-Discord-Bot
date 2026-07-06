@@ -2,9 +2,12 @@ import sqlite3
 
 DATABASE_NAME = "nexus.db"
 
+MAX_MEMORY = 40
+MAX_FACTS = 100
+
 
 def connect():
-    return sqlite3.connect(DATABASE_NAME)
+    return sqlite3.connect(DATABASE_NAME, timeout=10)
 
 
 def setup_database():
@@ -45,6 +48,10 @@ def setup_database():
     conn.close()
 
 
+# ============================
+# Chat Memory
+# ============================
+
 def save_message(user_id, role, message):
     conn = connect()
     cursor = conn.cursor()
@@ -55,6 +62,22 @@ def save_message(user_id, role, message):
         VALUES (?, ?, ?)
         """,
         (user_id, role, message)
+    )
+
+    # Keep only the newest MAX_MEMORY messages
+    cursor.execute(
+        """
+        DELETE FROM memories
+        WHERE user_id=?
+        AND id NOT IN (
+            SELECT id
+            FROM memories
+            WHERE user_id=?
+            ORDER BY id DESC
+            LIMIT ?
+        )
+        """,
+        (user_id, user_id, MAX_MEMORY)
     )
 
     conn.commit()
@@ -112,7 +135,6 @@ def save_fact(user_id, fact):
     conn = connect()
     cursor = conn.cursor()
 
-    # Check if the fact already exists
     cursor.execute(
         """
         SELECT id
@@ -123,6 +145,7 @@ def save_fact(user_id, fact):
     )
 
     if cursor.fetchone() is None:
+
         cursor.execute(
             """
             INSERT INTO user_facts(user_id, fact)
@@ -131,9 +154,26 @@ def save_fact(user_id, fact):
             (user_id, fact)
         )
 
+        # Keep only newest MAX_FACTS facts
+        cursor.execute(
+            """
+            DELETE FROM user_facts
+            WHERE user_id=?
+            AND id NOT IN (
+                SELECT id
+                FROM user_facts
+                WHERE user_id=?
+                ORDER BY id DESC
+                LIMIT ?
+            )
+            """,
+            (user_id, user_id, MAX_FACTS)
+        )
+
         conn.commit()
 
     conn.close()
+
 
 def get_facts(user_id):
     conn = connect()
@@ -144,6 +184,7 @@ def get_facts(user_id):
         SELECT fact
         FROM user_facts
         WHERE user_id=?
+        ORDER BY id ASC
         """,
         (user_id,)
     )
