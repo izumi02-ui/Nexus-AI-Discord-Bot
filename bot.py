@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 
 from config import DISCORD_TOKEN
+from openai_client import ask_ai
 
 # Enable the required Discord intents
 intents = discord.Intents.default()
@@ -27,5 +28,19 @@ async def on_ready():
 async def ping(ctx):
     await ctx.send("🏓 Pong!")
 
+@bot.command()
+async def ai(ctx, *, message):
+
+    # Tell the user the bot is thinking...
+    async with ctx.typing():
+
+        try:
+            response = ask_ai(message)
+            await ctx.send(response)
+
+        except Exception as error:
+            await ctx.send(f"❌ Error:\n```{error}```")
+
 # Start the bot
-bot.run(DISCORD_TOKEN)
+if __name__ == "__main__":
+    bot.run(DISCORD_TOKEN)
