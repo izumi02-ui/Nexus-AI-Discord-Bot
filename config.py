@@ -6,8 +6,24 @@ load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+# Special Users
+IZUMI_ID = 1169870987135823876
+ASH_ID = 1465041186325794939
+
+SPECIAL_USERS = {
+    IZUMI_ID: {
+        "display_name": "Izumi",
+        "nicknames": ["IZ", "Rohit"],
+    },
+
+    ASH_ID: {
+        "display_name": "Ash",
+        "nicknames": ["Ashey"],
+    },
+}
+
 if not DISCORD_TOKEN:
     raise ValueError("DISCORD_TOKEN is missing!")
 
 if not OPENAI_API_KEY:
-    print("Warning: OPENAI_API_KEY not found. AI features will be disabled.")
+    raise ValueError("OPENAI_API_KEY is missing!")
