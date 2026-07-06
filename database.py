@@ -31,14 +31,64 @@ def setup_database():
     )
     """)
 
-    # Server Settings
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS servers(
-        guild_id INTEGER PRIMARY KEY,
-        prefix TEXT DEFAULT '!',
-        personality TEXT DEFAULT 'default'
+    conn.commit()
+    conn.close()
+
+
+def save_message(user_id, role, message):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO memories(user_id, role, message)
+        VALUES (?, ?, ?)
+        """,
+        (user_id, role, message)
     )
-    """)
+
+    conn.commit()
+    conn.close()
+
+
+def load_memory(user_id, limit=20):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT role, message
+        FROM memories
+        WHERE user_id=?
+        ORDER BY id DESC
+        LIMIT ?
+        """,
+        (user_id, limit)
+    )
+
+    rows = cursor.fetchall()
+
+    conn.close()
+
+    rows.reverse()
+
+    return [
+        {
+            "role": role,
+            "content": message
+        }
+        for role, message in rows
+    ]
+
+
+def clear_memory_db(user_id):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "DELETE FROM memories WHERE user_id=?",
+        (user_id,)
+    )
 
     conn.commit()
     conn.close()
