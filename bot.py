@@ -1,3 +1,5 @@
+from memory_manager import process_message
+
 from database import setup_database
 
 import discord
@@ -69,22 +71,22 @@ async def on_message(message):
 
 # Simple test command
 @bot.command()
-async def ping(ctx):
-    await ctx.send("🏓 Pong!")
-
-@bot.command()
 async def ai(ctx, *, message):
 
     # Tell the user the bot is thinking...
     async with ctx.typing():
 
         try:
+
+            process_message(ctx.author.id, message)
+
             response = await ask_ai(message, ctx.author.id)
+
             await ctx.send(response)
 
         except Exception as error:
             await ctx.send(f"❌ Error:\n```{error}```")
-
+            
 # Start the bot
 if __name__ == "__main__":
     bot.run(DISCORD_TOKEN)
