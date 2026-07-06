@@ -112,17 +112,28 @@ def save_fact(user_id, fact):
     conn = connect()
     cursor = conn.cursor()
 
+    # Check if the fact already exists
     cursor.execute(
         """
-        INSERT INTO user_facts(user_id, fact)
-        VALUES (?, ?)
+        SELECT id
+        FROM user_facts
+        WHERE user_id=? AND fact=?
         """,
         (user_id, fact)
     )
 
-    conn.commit()
-    conn.close()
+    if cursor.fetchone() is None:
+        cursor.execute(
+            """
+            INSERT INTO user_facts(user_id, fact)
+            VALUES (?, ?)
+            """,
+            (user_id, fact)
+        )
 
+        conn.commit()
+
+    conn.close()
 
 def get_facts(user_id):
     conn = connect()
