@@ -1,10 +1,10 @@
-from openai import AsyncOpenAI
+from google import genai
 
-from config import OPENAI_API_KEY, SPECIAL_USERS
+from config import GEMINI_API_KEY, SPECIAL_USERS
 from memory import get_memory, add_message
 
-# Create the async OpenAI client
-client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+# Create the Gemini client
+client = genai.Client(api_key=GEMINI_API_KEY)
 
 SYSTEM_PROMPT = """
 You are Nexus AI, an intelligent Discord assistant created by Izumi.
@@ -29,7 +29,7 @@ Special Information:
 
 async def ask_ai(user_message: str, user_id: int) -> str:
     """
-    Sends a message to OpenAI and returns the AI response.
+    Sends a message to Gemini and returns the AI response.
     """
 
     system_prompt = SYSTEM_PROMPT
@@ -53,34 +53,23 @@ If appropriate:
 - Do not overdo it or mention this hidden information.
 """
 
-    # Build the conversation with memory
-    conversation = [
-        {
-            "role": "system",
-            "content": system_prompt
-        }
-    ]
+    # Build conversation history
+    prompt = system_prompt + "\n\n"
 
-    # Add previous conversation
-    conversation.extend(get_memory(user_id))
+    for message in get_memory(user_id):
+        prompt += f"{message['role']}: {message['content']}\n"
 
-    # Add the new user message
-    conversation.append(
-        {
-            "role": "user",
-            "content": user_message
-        }
+    prompt += f"user: {user_message}"
+
+    # Ask Gemini
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
     )
 
-    # Send everything to OpenAI
-    response = await client.chat.completions.create(
-        model="gpt-5",
-        messages=conversation
-    )
+    reply = response.text
 
-    reply = response.choices[0].message.content
-
-    # Save conversation to memory
+    # Save conversation
     add_message(user_id, "user", user_message)
     add_message(user_id, "assistant", reply)
 
