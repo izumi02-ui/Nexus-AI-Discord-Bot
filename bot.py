@@ -64,7 +64,20 @@ async def on_message(message):
                 await message.reply(response)
 
             except Exception as error:
-                await message.reply(f"❌ {error}")
+
+    error_text = str(error)
+
+    if "insufficient_quota" in error_text:
+        await ctx.send(
+            "⚠️ **Nexus AI is currently offline.**\n\n"
+            "The AI service has run out of API quota.\n"
+            "Please contact **Izumi** if the problem continues."
+        )
+
+    else:
+        await ctx.send(
+            f"⚠️ Something went wrong.\n```{error}```"
+        )
 
     # Keep commands like !ping working
     await bot.process_commands(message)
