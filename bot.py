@@ -81,12 +81,9 @@ async def ai(ctx, *, message):
     response = await ask_ai(message, ctx.author.id)
 
     await ctx.send(response)
-
+    
 except Exception as error:
-    await ctx.send(f"X Error:
-
-\n`````{error}```")
-
+    await ctx.send(f"X Error:\n`````{error}```")
 
 @bot.command()
 async def memory(ctx):
