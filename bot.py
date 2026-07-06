@@ -83,20 +83,9 @@ async def ai(ctx, *, message):
     await ctx.send(response)
 
 except Exception as error:
+    await ctx.send(f"X Error:
 
-    error_text = str(error)
-
-    if "insufficient_quota" in error_text:
-        await ctx.send(
-            "⚠️ **Nexus AI is currently offline.**\n\n"
-            "The AI service has run out of API quota.\n"
-            "Please contact **Izumi** if the problem continues."
-        )
-
-    else:
-        await ctx.send(
-            f"⚠️ Something went wrong.\n```{error}```"
-        )
+\n`````{error}```")
 
 
 @bot.command()
