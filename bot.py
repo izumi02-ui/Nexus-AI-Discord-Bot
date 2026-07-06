@@ -1,3 +1,5 @@
+from database import setup_database
+
 import discord
 from discord.ext import commands
 
@@ -17,6 +19,9 @@ bot = commands.Bot(
 # Runs when the bot starts
 @bot.event
 async def on_ready():
+
+    setup_database()
+
     print("=" * 40)
     print(f"Logged in as: {bot.user}")
     print(f"Bot ID: {bot.user.id}")
