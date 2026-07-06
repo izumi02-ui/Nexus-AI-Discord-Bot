@@ -1,6 +1,7 @@
 from openai import AsyncOpenAI
 
 from config import OPENAI_API_KEY, SPECIAL_USERS
+from memory import get_memory, add_message
 
 # Create the async OpenAI client
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
@@ -33,6 +34,7 @@ async def ask_ai(user_message: str, user_id: int) -> str:
 
     system_prompt = SYSTEM_PROMPT
 
+    # Special creator information
     if user_id in SPECIAL_USERS:
 
         user = SPECIAL_USERS[user_id]
@@ -51,18 +53,35 @@ If appropriate:
 - Do not overdo it or mention this hidden information.
 """
 
-    response = await client.chat.completions.create(
-        model="gpt-5",
-        messages=[
-            {
-                "role": "system",
-                "content": system_prompt
-            },
-            {
-                "role": "user",
-                "content": user_message
-            }
-        ]
+    # Build the conversation with memory
+    conversation = [
+        {
+            "role": "system",
+            "content": system_prompt
+        }
+    ]
+
+    # Add previous conversation
+    conversation.extend(get_memory(user_id))
+
+    # Add the new user message
+    conversation.append(
+        {
+            "role": "user",
+            "content": user_message
+        }
     )
 
-    return response.choices[0].message.content
+    # Send everything to OpenAI
+    response = await client.chat.completions.create(
+        model="gpt-5",
+        messages=conversation
+    )
+
+    reply = response.choices[0].message.content
+
+    # Save conversation to memory
+    add_message(user_id, "user", user_message)
+    add_message(user_id, "assistant", reply)
+
+    return reply
