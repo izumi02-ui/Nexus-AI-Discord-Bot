@@ -1,5 +1,5 @@
 from memory_manager import process_message
-
+from database import get_facts
 from database import setup_database
 
 import discord
@@ -73,11 +73,9 @@ async def on_message(message):
 @bot.command()
 async def ai(ctx, *, message):
 
-    # Tell the user the bot is thinking...
     async with ctx.typing():
 
         try:
-
             process_message(ctx.author.id, message)
 
             response = await ask_ai(message, ctx.author.id)
@@ -86,7 +84,23 @@ async def ai(ctx, *, message):
 
         except Exception as error:
             await ctx.send(f"❌ Error:\n```{error}```")
-            
-# Start the bot
+
+
+@bot.command()
+async def memory(ctx):
+
+    facts = get_facts(ctx.author.id)
+
+    if not facts:
+        await ctx.send("🧠 I don't remember anything about you yet.")
+        return
+
+    text = "\n".join(f"• {fact}" for fact in facts)
+
+    await ctx.send(
+        f"## 🧠 Things I remember about you:\n{text}"
+    )
+
+
 if __name__ == "__main__":
     bot.run(DISCORD_TOKEN)
