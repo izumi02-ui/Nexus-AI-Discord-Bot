@@ -31,6 +31,16 @@ def setup_database():
     )
     """)
 
+    # User Facts
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_facts(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        fact TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -87,6 +97,59 @@ def clear_memory_db(user_id):
 
     cursor.execute(
         "DELETE FROM memories WHERE user_id=?",
+        (user_id,)
+    )
+
+    conn.commit()
+    conn.close()
+
+
+# ============================
+# User Facts
+# ============================
+
+def save_fact(user_id, fact):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO user_facts(user_id, fact)
+        VALUES (?, ?)
+        """,
+        (user_id, fact)
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def get_facts(user_id):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT fact
+        FROM user_facts
+        WHERE user_id=?
+        """,
+        (user_id,)
+    )
+
+    rows = cursor.fetchall()
+
+    conn.close()
+
+    return [row[0] for row in rows]
+
+
+def clear_facts(user_id):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "DELETE FROM user_facts WHERE user_id=?",
         (user_id,)
     )
 
