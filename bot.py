@@ -76,13 +76,13 @@ async def ai(ctx, *, message):
     async with ctx.typing():
 
         try:
-            process_message(ctx.author.id, message)
+    process_message(ctx.author.id, message)
 
-            response = await ask_ai(message, ctx.author.id)
+    response = await ask_ai(message, ctx.author.id)
 
-            await ctx.send(response)
+    await ctx.send(response)
 
-        except Exception as error:
+except Exception as error:
 
     error_text = str(error)
 
