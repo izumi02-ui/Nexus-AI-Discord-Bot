@@ -1,9 +1,13 @@
 """
+Project Nexus
+
 Gemini Provider
 """
 
+from ai.providers.base import BaseProvider
 
-class GeminiProvider:
+
+class GeminiProvider(BaseProvider):
 
     async def ask(
         self,
@@ -12,7 +16,7 @@ class GeminiProvider:
     ) -> str:
 
         return (
-            "Gemini Provider Ready\n\n"
-            f"User ID: {user_id}\n"
+            "Gemini Provider Ready\n"
+            f"User: {user_id}\n"
             f"Messages: {len(conversation)}"
         )
