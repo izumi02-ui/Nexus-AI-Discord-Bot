@@ -3,42 +3,28 @@ Project Nexus
 
 AI Engine
 
-The AI Engine is the heart of Nexus.
-Every AI request passes through here.
-
-Discord never talks directly to Gemini,
-Groq, OpenRouter, or any future provider.
-
-Instead, Discord asks the Engine,
-and the Engine decides which provider to use.
+The heart of Nexus.
 """
 
-from ai.provider import ProviderManager
+from ai.memory_manager import MemoryManager
 
 
 class AIEngine:
-    """
-    Main AI Engine
-    """
 
     def __init__(self):
 
-        self.provider = ProviderManager()
+        self.memory = MemoryManager()
 
     async def ask(
         self,
         user_id: int,
         message: str,
     ) -> str:
-        """
-        Send a message to the active AI provider.
-        """
 
-        return await self.provider.ask(
+        return await self.memory.process(
             user_id=user_id,
             message=message
         )
 
 
-# Global Engine
 engine = AIEngine()
