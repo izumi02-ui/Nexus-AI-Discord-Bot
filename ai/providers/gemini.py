@@ -1,8 +1,5 @@
 """
 Gemini Provider
-
-Handles communication
-with Google's Gemini API.
 """
 
 
@@ -11,7 +8,11 @@ class GeminiProvider:
     async def ask(
         self,
         user_id: int,
-        message: str,
+        conversation: list,
     ) -> str:
 
-        return "Gemini provider is not implemented yet."
+        return (
+            "Gemini Provider Ready\n\n"
+            f"User ID: {user_id}\n"
+            f"Messages: {len(conversation)}"
+        )
