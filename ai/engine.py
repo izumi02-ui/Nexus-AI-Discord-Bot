@@ -2,18 +2,17 @@
 Project Nexus
 
 AI Engine
-
-The heart of Nexus.
 """
 
-from ai.memory_manager import MemoryManager
+from ai.conversation_manager import conversation_manager
+from ai.provider import ProviderManager
 
 
 class AIEngine:
 
     def __init__(self):
 
-        self.memory = MemoryManager()
+        self.provider = ProviderManager()
 
     async def ask(
         self,
@@ -21,9 +20,14 @@ class AIEngine:
         message: str,
     ) -> str:
 
-        return await self.memory.process(
+        conversation = await conversation_manager.build(
             user_id=user_id,
             message=message
+        )
+
+        return await self.provider.ask(
+            user_id=user_id,
+            conversation=conversation
         )
 
 
