@@ -1,47 +1,48 @@
 """
 Project Nexus
 
-User Profile
+Profile Manager
 
-Represents a Discord user known by Nexus.
+Responsible for managing user profiles.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import List, Dict
+from database.user_profile import UserProfile
+from utils.logger import logger
 
 
-@dataclass
-class UserProfile:
-    """
-    Represents a Discord user.
-    """
+class ProfileManager:
 
-    # Discord Information
-    user_id: int
-    username: str = ""
-    display_name: str = ""
+    def __init__(self):
 
-    # Nexus Information
-    role: str = "user"
+        self.cache = {}
 
-    nicknames: List[str] = field(default_factory=list)
+    def get_profile(
+        self,
+        user_id: int
+    ) -> UserProfile:
 
-    # AI Memory
-    facts: List[str] = field(default_factory=list)
+        if user_id not in self.cache:
 
-    preferences: Dict = field(default_factory=dict)
+            logger.info(
+                f"Creating profile for {user_id}"
+            )
 
-    # Statistics
-    conversation_count: int = 0
+            self.cache[user_id] = UserProfile(
+                user_id=user_id
+            )
 
-    total_messages: int = 0
+        return self.cache[user_id]
 
-    # Dates
-    created_at: str = field(
-        default_factory=lambda: datetime.utcnow().isoformat()
-    )
+    def save_profile(
+        self,
+        profile: UserProfile
+    ):
 
-    last_seen: str = field(
-        default_factory=lambda: datetime.utcnow().isoformat()
-    )
+        logger.info(
+            f"Saving profile {profile.user_id}"
+        )
+
+        self.cache[profile.user_id] = profile
+
+
+profile_manager = ProfileManager()
