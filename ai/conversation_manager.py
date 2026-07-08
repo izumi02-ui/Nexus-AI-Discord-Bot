@@ -11,7 +11,8 @@ from utils.prompt_loader import build_system_prompt
 from utils.logger import logger
 
 from database.profile_manager import profile_manager
-from database.facts import get_facts
+from database.fact_manager import get_facts
+from database.memory import get_memory
 
 
 class ConversationManager:
@@ -49,6 +50,12 @@ class ConversationManager:
 
         facts = get_facts(user_id)
 
+        # ==========================
+        # Load Recent Memory
+        # ==========================
+
+        memory = get_memory(user_id)
+
         conversation = []
 
         # ==========================
@@ -79,6 +86,12 @@ class ConversationManager:
                         )
                 }
             )
+
+        # ==========================
+        # Recent Conversation
+        # ==========================
+
+        conversation.extend(memory)
 
         # ==========================
         # Current User Message
