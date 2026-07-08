@@ -18,17 +18,14 @@ class Database:
 
     def __init__(self):
 
-        Path("data").mkdir(
-            exist_ok=True
-        )
+        Path("data").mkdir(exist_ok=True)
 
         self.connection = sqlite3.connect(
-            DATABASE_NAME
+            DATABASE_NAME,
+            check_same_thread=False
         )
 
         self.connection.row_factory = sqlite3.Row
-
-        self.cursor = self.connection.cursor()
 
         logger.info("Database connected.")
 
@@ -38,7 +35,9 @@ class Database:
         params=()
     ):
 
-        self.cursor.execute(
+        cursor = self.connection.cursor()
+
+        cursor.execute(
             query,
             params
         )
@@ -51,12 +50,14 @@ class Database:
         params=()
     ):
 
-        self.cursor.execute(
+        cursor = self.connection.cursor()
+
+        cursor.execute(
             query,
             params
         )
 
-        return self.cursor.fetchone()
+        return cursor.fetchone()
 
     def fetchall(
         self,
@@ -64,16 +65,24 @@ class Database:
         params=()
     ):
 
-        self.cursor.execute(
+        cursor = self.connection.cursor()
+
+        cursor.execute(
             query,
             params
         )
 
-        return self.cursor.fetchall()
+        return cursor.fetchall()
 
     def setup(self):
 
-        logger.info("Creating database tables...")
+        logger.info(
+            "Creating database tables..."
+        )
+
+        # ==========================
+        # Profiles
+        # ==========================
 
         self.execute("""
         CREATE TABLE IF NOT EXISTS profiles(
@@ -94,6 +103,10 @@ class Database:
         )
         """)
 
+        # ==========================
+        # Facts
+        # ==========================
+
         self.execute("""
         CREATE TABLE IF NOT EXISTS facts(
 
@@ -105,7 +118,28 @@ class Database:
         )
         """)
 
-        logger.info("Database ready.")
+        # ==========================
+        # Memories
+        # ==========================
+
+        self.execute("""
+        CREATE TABLE IF NOT EXISTS memories(
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            user_id INTEGER,
+
+            role TEXT,
+
+            content TEXT,
+
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+
+        logger.info(
+            "Database ready."
+        )
 
 
 database = Database()
