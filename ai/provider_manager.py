@@ -2,21 +2,36 @@
 Project Nexus
 
 Provider Manager
+
+Responsible for selecting and managing
+the active AI provider.
 """
 
-from utils.logger import logger
 from ai.providers.gemini import GeminiProvider
+
+from utils.logger import logger
+from utils.settings import settings
 
 
 class ProviderManager:
 
     def __init__(self):
 
-        logger.info("Loading Provider...")
+        self.provider = self._load_provider()
 
-        self.provider = GeminiProvider()
+    def _load_provider(self):
 
-        logger.info("Provider Loaded.")
+        provider = settings.provider.lower()
+
+        logger.info(f"Loading provider: {provider}")
+
+        if provider == "gemini":
+
+            return GeminiProvider()
+
+        raise ValueError(
+            f"Unknown provider: {provider}"
+        )
 
     async def ask(
         self,
@@ -28,6 +43,11 @@ class ProviderManager:
             user_id=user_id,
             conversation=conversation
         )
+
+    @property
+    def name(self):
+
+        return self.provider.name
 
 
 provider_manager = ProviderManager()
