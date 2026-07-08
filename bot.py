@@ -8,10 +8,13 @@ import discord
 from discord.ext import commands
 
 from config import DISCORD_TOKEN
+
 from ai.engine import engine
 
 from database.database import setup_database
-from database.facts import get_facts
+from database.fact_manager import get_facts
+
+from utils.logger import logger
 
 
 # ============================================
@@ -20,6 +23,8 @@ from database.facts import get_facts
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
+intents.guilds = True
 
 
 # ============================================
@@ -53,15 +58,17 @@ async def on_ready():
         )
     )
 
-    print("Project Nexus is online.")
+    logger.info("Project Nexus is online.")
 
 
 @bot.event
 async def on_message(message):
 
+    # Ignore bots
     if message.author.bot:
         return
 
+    # Only respond when mentioned
     if bot.user in message.mentions:
 
         async with message.channel.typing():
@@ -92,10 +99,13 @@ async def on_message(message):
 
             except Exception as error:
 
+                logger.exception("Failed to process mention")
+
                 await message.reply(
                     f"⚠️ {error}"
                 )
 
+    # Keep commands working
     await bot.process_commands(message)
 
 
@@ -103,7 +113,10 @@ async def on_message(message):
 # Commands
 # ============================================
 
-@bot.command()
+@bot.command(
+    name="ai",
+    help="Talk with Nexus AI."
+)
 async def ai(ctx, *, message):
 
     async with ctx.typing():
@@ -119,12 +132,17 @@ async def ai(ctx, *, message):
 
         except Exception as error:
 
+            logger.exception("AI command failed")
+
             await ctx.send(
                 f"⚠️ {error}"
             )
 
 
-@bot.command()
+@bot.command(
+    name="memory",
+    help="Show remembered facts."
+)
 async def memory(ctx):
 
     facts = get_facts(ctx.author.id)
