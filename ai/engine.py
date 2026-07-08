@@ -5,7 +5,7 @@ AI Engine
 """
 
 from ai.conversation_manager import conversation_manager
-from ai.provider import ProviderManager
+from ai.provider_manager import ProviderManager
 
 
 class AIEngine:
