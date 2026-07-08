@@ -12,7 +12,7 @@ class AIEngine:
 
     def __init__(self):
 
-        self.provider = ProviderManager()
+        from ai.provider_manager import provider_manager
 
     async def ask(
         self,
