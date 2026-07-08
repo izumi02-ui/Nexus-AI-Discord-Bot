@@ -1,29 +1,77 @@
+"""
+Project Nexus
+
+Configuration
+"""
+
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# ============================================
+# Project
+# ============================================
+
+PROJECT_NAME = "Project Nexus"
+VERSION = "2.0.0-alpha.1"
+
+# ============================================
+# Discord
+# ============================================
+
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+
+# ============================================
+# AI
+# ============================================
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+DEFAULT_PROVIDER = "gemini"
+DEFAULT_MODEL = "gemini-2.5-flash"
+
+# ============================================
+# Database
+# ============================================
+
+DATABASE_NAME = "data/nexus.db"
+
+# ============================================
+# Memory
+# ============================================
+
+MEMORY_LIMIT = 20
+
+# ============================================
+# Logging
+# ============================================
+
+DEBUG = True
+LOG_LEVEL = "INFO"
+
+# ============================================
+# Creator
+# ============================================
+
+CREATOR_ID = 1169870987135823876
+
+CREATOR_NAMES = [
+    "Izumi",
+    "Rohit",
+    "IZ"
+]
+
+# ============================================
 # Special Users
-IZUMI_ID = 1169870987135823876
-ASH_ID = 1465041186325794939
+# ============================================
 
 SPECIAL_USERS = {
-    IZUMI_ID: {
-        "display_name": "Izumi",
-        "nicknames": ["IZ", "Rohit"],
-    },
-
-    ASH_ID: {
+    1465041186325794939: {
         "display_name": "Ash",
-        "nicknames": ["Ashey"],
-    },
+        "nicknames": [
+            "Ash",
+            "Ashey"
+        ]
+    }
 }
-
-if not DISCORD_TOKEN:
-    raise ValueError("DISCORD_TOKEN is missing!")
-
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY is missing!")
