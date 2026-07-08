@@ -11,6 +11,7 @@ from utils.prompt_loader import build_system_prompt
 from utils.logger import logger
 
 from database.profile_manager import profile_manager
+from database.facts import get_facts
 
 
 class ConversationManager:
@@ -28,16 +29,25 @@ class ConversationManager:
             f"Building conversation for {user_id}"
         )
 
-        # Load user profile
+        # ==========================
+        # Load Profile
+        # ==========================
+
         profile = profile_manager.get_profile(
             user_id
         )
 
-        # Update statistics
         profile.total_messages += 1
 
-        # Save updated profile
-        profile_manager.save_profile(profile)
+        profile_manager.save_profile(
+            profile
+        )
+
+        # ==========================
+        # Load User Facts
+        # ==========================
+
+        facts = get_facts(user_id)
 
         conversation = []
 
@@ -56,20 +66,17 @@ class ConversationManager:
         # User Facts
         # ==========================
 
-        if profile.facts:
-
-            facts = "\n".join(
-                f"- {fact}"
-                for fact in profile.facts
-            )
+        if facts:
 
             conversation.append(
                 {
                     "role": "system",
-                    "content": (
+                    "content":
                         "Known facts about this user:\n"
-                        f"{facts}"
-                    )
+                        + "\n".join(
+                            f"- {fact}"
+                            for fact in facts
+                        )
                 }
             )
 
