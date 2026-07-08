@@ -7,27 +7,39 @@ Every AI provider must inherit from this class.
 """
 
 from abc import ABC, abstractmethod
+from typing import List, Dict
 
 
 class BaseProvider(ABC):
     """
-    Base class for every AI provider.
+    Base class for all AI providers.
     """
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """
+        Human-readable provider name.
+        """
+        pass
 
     @abstractmethod
     async def ask(
         self,
         user_id: int,
-        conversation: list,
+        conversation: List[Dict],
     ) -> str:
         """
-        Send a conversation to the AI provider.
+        Send a conversation to an AI provider.
 
-        Parameters:
-            user_id: Discord User ID
-            conversation: Complete conversation history
+        Args:
+            user_id:
+                Discord user ID.
+
+            conversation:
+                List of conversation messages.
 
         Returns:
-            AI response as a string.
+            AI response.
         """
-        pass
+        raise NotImplementedError
