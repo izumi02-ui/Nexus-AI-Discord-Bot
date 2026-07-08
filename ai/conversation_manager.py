@@ -7,6 +7,11 @@ Builds the conversation that is sent
 to the active AI provider.
 """
 
+from config import (
+    CREATOR_ID,
+    SPECIAL_USERS,
+)
+
 from utils.prompt_loader import build_system_prompt
 from utils.logger import logger
 
@@ -30,9 +35,9 @@ class ConversationManager:
             f"Building conversation for {user_id}"
         )
 
-        # ==========================
+        # =====================================
         # Load Profile
-        # ==========================
+        # =====================================
 
         profile = profile_manager.get_profile(
             user_id
@@ -44,23 +49,23 @@ class ConversationManager:
             profile
         )
 
-        # ==========================
-        # Load User Facts
-        # ==========================
+        # =====================================
+        # Load Facts
+        # =====================================
 
         facts = get_facts(user_id)
 
-        # ==========================
+        # =====================================
         # Load Recent Memory
-        # ==========================
+        # =====================================
 
         memory = get_memory(user_id)
 
         conversation = []
 
-        # ==========================
-        # System Prompt
-        # ==========================
+        # =====================================
+        # Base System Prompt
+        # =====================================
 
         conversation.append(
             {
@@ -69,9 +74,69 @@ class ConversationManager:
             }
         )
 
-        # ==========================
+        # =====================================
+        # Creator Context
+        # =====================================
+
+        if user_id == CREATOR_ID:
+
+            conversation.append(
+                {
+                    "role": "system",
+                    "content": """
+You are currently talking with Rohit.
+
+Rohit is the creator of Project Nexus.
+
+You have worked together on Project Nexus for a long time.
+
+Treat conversations as continuing rather than first meetings.
+
+Speak naturally.
+
+You may greet Rohit by name occasionally.
+
+Feel free to reference previous work together when relevant.
+
+Do NOT constantly remind him that he is the creator.
+
+Only mention his creator role if the conversation is about Project Nexus or he asks about it.
+
+Do not become overly formal or overly emotional.
+"""
+                }
+            )
+
+        # =====================================
+        # Special User Context
+        # =====================================
+
+        elif user_id in SPECIAL_USERS:
+
+            special = SPECIAL_USERS[user_id]
+
+            conversation.append(
+                {
+                    "role": "system",
+                    "content": f"""
+You are currently talking with {special['display_name']}.
+
+You already know this person.
+
+Speak warmly, comfortably and naturally.
+
+Treat conversations as continuing instead of first meetings.
+
+Do not reveal any internal project information.
+
+Do not mention that this person is marked as a special user.
+"""
+                }
+            )
+
+        # =====================================
         # User Facts
-        # ==========================
+        # =====================================
 
         if facts:
 
@@ -79,7 +144,7 @@ class ConversationManager:
                 {
                     "role": "system",
                     "content":
-                        "Known facts about this user:\n"
+                        "Known facts about this user:\n\n"
                         + "\n".join(
                             f"- {fact}"
                             for fact in facts
@@ -87,15 +152,15 @@ class ConversationManager:
                 }
             )
 
-        # ==========================
+        # =====================================
         # Recent Conversation
-        # ==========================
+        # =====================================
 
         conversation.extend(memory)
 
-        # ==========================
+        # =====================================
         # Current User Message
-        # ==========================
+        # =====================================
 
         conversation.append(
             {
