@@ -28,15 +28,23 @@ class ConversationManager:
             f"Building conversation for {user_id}"
         )
 
+        # Load user profile
         profile = profile_manager.get_profile(
             user_id
         )
 
+        # Update statistics
         profile.total_messages += 1
+
+        # Save updated profile
+        profile_manager.save_profile(profile)
 
         conversation = []
 
+        # ==========================
         # System Prompt
+        # ==========================
+
         conversation.append(
             {
                 "role": "system",
@@ -44,7 +52,10 @@ class ConversationManager:
             }
         )
 
+        # ==========================
         # User Facts
+        # ==========================
+
         if profile.facts:
 
             facts = "\n".join(
@@ -55,16 +66,26 @@ class ConversationManager:
             conversation.append(
                 {
                     "role": "system",
-                    "content": f"Known facts about this user:\n{facts}"
+                    "content": (
+                        "Known facts about this user:\n"
+                        f"{facts}"
+                    )
                 }
             )
 
+        # ==========================
         # Current User Message
+        # ==========================
+
         conversation.append(
             {
                 "role": "user",
                 "content": message
             }
+        )
+
+        logger.info(
+            f"Conversation built for {user_id}"
         )
 
         return conversation
