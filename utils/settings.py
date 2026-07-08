@@ -2,32 +2,22 @@
 Project Nexus
 
 Settings Manager
-
-Central place for reading
-configuration values.
 """
 
-from config import (
-    DISCORD_TOKEN,
-    GEMINI_API_KEY,
-)
-
+from config import *
 
 class Settings:
 
-    def __init__(self):
+    discord_token = DISCORD_TOKEN
 
-        self.discord_token = DISCORD_TOKEN
+    gemini_api_key = GEMINI_API_KEY
 
-        self.gemini_api_key = GEMINI_API_KEY
+    provider = DEFAULT_PROVIDER
 
-        self.default_provider = "gemini"
+    model = DEFAULT_MODEL
 
-        self.model = "gemini-2.5-flash"
+    memory_limit = MEMORY_LIMIT
 
-        self.memory_limit = 20
-
-        self.debug = True
-
+    debug = DEBUG
 
 settings = Settings()
