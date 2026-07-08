@@ -9,6 +9,7 @@ The central AI orchestration layer.
 from ai.conversation_manager import conversation_manager
 from ai.provider_manager import provider_manager
 from ai.memory_extractor import memory_extractor
+from ai.request_router import request_router
 
 from database.memory import add_message
 
@@ -41,27 +42,41 @@ class AIEngine:
             f"Processing request from {user_id}"
         )
 
-        # ==========================
+        # =====================================
+        # Request Router
+        # =====================================
+
+        if not request_router.needs_ai(message):
+
+            logger.info(
+                "Using local response."
+            )
+
+            return request_router.local_response(
+                message
+            )
+
+        # =====================================
         # Build Conversation
-        # ==========================
+        # =====================================
 
         conversation = await conversation_manager.build(
             user_id=user_id,
             message=message
         )
 
-        # ==========================
+        # =====================================
         # Ask Provider
-        # ==========================
+        # =====================================
 
         response = await self.provider.ask(
             user_id=user_id,
             conversation=conversation
         )
 
-        # ==========================
+        # =====================================
         # Save Conversation
-        # ==========================
+        # =====================================
 
         try:
 
@@ -87,9 +102,9 @@ class AIEngine:
                 f"Failed to save conversation: {error}"
             )
 
-        # ==========================
+        # =====================================
         # Learn New Facts
-        # ==========================
+        # =====================================
 
         try:
 
