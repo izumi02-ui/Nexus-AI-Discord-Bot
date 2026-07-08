@@ -5,7 +5,7 @@ Responsible for preparing conversations
 before sending them to an AI provider.
 """
 
-from ai.provider import ProviderManager
+from ai.provider_manager import ProviderManager
 
 
 class MemoryManager:
