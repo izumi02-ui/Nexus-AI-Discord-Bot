@@ -56,34 +56,37 @@ class ProfileManager:
         return profile
 
     def save_profile(
-    self,
-    profile: UserProfile
-):
+        self,
+        profile: UserProfile
+    ):
 
-    database.execute(
-        """
-        INSERT OR REPLACE INTO profiles(
-            user_id,
-            username,
-            display_name,
-            role,
-            created_at,
-            last_seen,
-            total_messages
+        database.execute(
+            """
+            INSERT OR REPLACE INTO profiles(
+                user_id,
+                username,
+                display_name,
+                role,
+                created_at,
+                last_seen,
+                total_messages
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                profile.user_id,
+                profile.username,
+                profile.display_name,
+                profile.role,
+                profile.created_at,
+                datetime.utcnow().isoformat(),
+                profile.total_messages
+            )
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            profile.user_id,
-            profile.username,
-            profile.display_name,
-            profile.role,
-            profile.created_at,
-            datetime.utcnow().isoformat(),
-            profile.total_messages
-        )
-    )
 
-    logger.info(
-        f"Saved profile {profile.user_id}"
-    )
+        logger.info(
+            f"Saved profile {profile.user_id}"
+        )
+
+
+profile_manager = ProfileManager()
