@@ -4,19 +4,19 @@ Project Nexus
 Provider Manager
 """
 
-from ai.providers.gemini import GeminiProvider
 from utils.logger import logger
+from ai.providers.gemini import GeminiProvider
 
 
 class ProviderManager:
 
     def __init__(self):
 
-        logger.info("Loading Gemini Provider...")
+        logger.info("Loading Provider...")
 
         self.provider = GeminiProvider()
 
-        logger.info("Gemini Provider Loaded.")
+        logger.info("Provider Loaded.")
 
     async def ask(
         self,
@@ -28,3 +28,6 @@ class ProviderManager:
             user_id=user_id,
             conversation=conversation
         )
+
+
+provider_manager = ProviderManager()
