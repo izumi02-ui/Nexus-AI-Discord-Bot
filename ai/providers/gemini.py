@@ -8,29 +8,44 @@ from typing import List, Dict
 
 from google import genai
 
+from ai.provider_capabilities import ProviderCapabilities
 from ai.providers.base import BaseProvider
+
 from utils.logger import logger
 from utils.settings import settings
 
 
 class GeminiProvider(BaseProvider):
-    """
-    Google Gemini AI Provider.
-    """
 
     @property
     def name(self) -> str:
         return "Gemini"
 
+    @property
+    def capabilities(self):
+
+        return ProviderCapabilities(
+            web_search=True,
+            vision=True,
+            files=True,
+            function_calling=True,
+            image_generation=False,
+            code_execution=False,
+        )
+
     def __init__(self):
 
-        logger.info("Initializing Gemini Provider...")
+        logger.info(
+            "Initializing Gemini Provider..."
+        )
 
         self.client = genai.Client(
             api_key=settings.gemini_api_key
         )
 
-        logger.info("Gemini Provider Ready.")
+        logger.info(
+            "Gemini Provider Ready."
+        )
 
     async def ask(
         self,
@@ -38,48 +53,32 @@ class GeminiProvider(BaseProvider):
         conversation: List[Dict],
     ) -> str:
 
-        try:
+        prompt = self._build_prompt(
+            conversation
+        )
 
-            prompt = self._build_prompt(conversation)
+        response = self.client.models.generate_content(
+            model=settings.model,
+            contents=prompt
+        )
 
-            response = self.client.models.generate_content(
-                model=settings.model,
-                contents=prompt
-            )
+        logger.info(
+            f"{self.name} replied to {user_id}"
+        )
 
-            logger.info(
-                f"{self.name} replied to user {user_id}"
-            )
-
-            return response.text.strip()
-
-        except Exception as error:
-
-            logger.exception(
-                f"{self.name} Provider Error"
-            )
-
-            raise error
+        return response.text.strip()
 
     def _build_prompt(
         self,
         conversation: List[Dict],
     ) -> str:
-        """
-        Convert the internal conversation format
-        into a Gemini prompt.
-        """
 
         prompt = []
 
         for message in conversation:
 
-            role = message["role"].upper()
-
-            content = message["content"]
-
             prompt.append(
-                f"{role}:\n{content}"
+                f"{message['role'].upper()}:\n{message['content']}"
             )
 
         return "\n\n".join(prompt)
