@@ -10,6 +10,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ============================================
+# Project
+# ============================================
+
+PROJECT_NAME = "Project Nexus"
+VERSION = "2.0.0-alpha.1"
+
+# ============================================
 # Discord
 # ============================================
 
@@ -22,8 +29,13 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 DEFAULT_PROVIDER = "gemini"
-
 DEFAULT_MODEL = "gemini-2.5-flash"
+
+# ============================================
+# Database
+# ============================================
+
+DATABASE_NAME = "data/nexus.db"
 
 # ============================================
 # Memory
@@ -32,10 +44,11 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 MEMORY_LIMIT = 20
 
 # ============================================
-# Debug
+# Logging
 # ============================================
 
 DEBUG = True
+LOG_LEVEL = "INFO"
 
 # ============================================
 # Creator
@@ -50,7 +63,7 @@ CREATOR_NAMES = [
 ]
 
 # ============================================
-# Special User
+# Special Users
 # ============================================
 
 SPECIAL_USERS = {
