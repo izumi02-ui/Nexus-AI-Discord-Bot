@@ -9,6 +9,8 @@ Every AI provider must inherit from this class.
 from abc import ABC, abstractmethod
 from typing import List, Dict
 
+from ai.provider_capabilities import ProviderCapabilities
+
 
 class BaseProvider(ABC):
     """
@@ -20,6 +22,14 @@ class BaseProvider(ABC):
     def name(self) -> str:
         """
         Human-readable provider name.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def capabilities(self) -> ProviderCapabilities:
+        """
+        Provider capabilities.
         """
         pass
 
@@ -43,3 +53,16 @@ class BaseProvider(ABC):
             AI response.
         """
         raise NotImplementedError
+
+    def supports(
+        self,
+        capability: str,
+    ) -> bool:
+        """
+        Check whether the provider supports
+        a capability.
+        """
+
+        return self.capabilities.supports(
+            capability
+        )
