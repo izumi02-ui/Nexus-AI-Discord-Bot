@@ -5,14 +5,14 @@ AI Engine
 """
 
 from ai.conversation_manager import conversation_manager
-from ai.provider_manager import ProviderManager
+from ai.provider_manager import provider_manager
 
 
 class AIEngine:
 
     def __init__(self):
 
-        from ai.provider_manager import provider_manager
+        self.provider = provider_manager
 
     async def ask(
         self,
