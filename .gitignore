@@ -1,17 +1,8 @@
-# Environment variables
-.env
-
-# Python cache
 __pycache__/
-*.py[cod]
-
-# Database
+*.pyc
+.env
+.env.*
 *.db
-
-# Virtual environments
-venv/
-.venv/
-
-# OS files
-.DS_Store
-Thumbs.db
+data/
+.vscode/
+.idea/
