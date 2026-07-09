@@ -3,8 +3,7 @@ Project Nexus
 
 Response Formatter
 
-Formats AI responses into a clean,
-professional Discord style.
+Formats AI responses for Discord.
 """
 
 import re
@@ -12,47 +11,137 @@ import re
 
 class ResponseFormatter:
 
-    SEPARATOR = "━━━━━━━━━━━━━━━━━━"
+    FOOTER = (
+        "\n\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        "__Powered by Project Nexus__"
+    )
 
     def format(
         self,
         text: str,
     ) -> str:
 
+        if not text:
+
+            return "I couldn't generate a response."
+
         text = text.strip()
 
-        # Remove excessive blank lines
+        # =====================================
+        # Cleanup
+        # =====================================
+
         text = re.sub(
             r"\n{3,}",
             "\n\n",
             text
         )
 
-        # Title
-        lines = text.splitlines()
-
-        if lines:
-
-            first = lines[0].strip()
-
-            if (
-                len(first) < 70
-                and not first.startswith("#")
-                and not first.startswith("```")
-            ):
-
-                lines[0] = f"# 📚 {first}"
-
-        text = "\n".join(lines)
-
-        # Add footer
-
-        text += (
-            f"\n\n{self.SEPARATOR}"
-            "\n__Powered by Project Nexus__"
+        text = re.sub(
+            r"[ \t]+",
+            " ",
+            text
         )
 
-        return text
+        # =====================================
+        # Greeting
+        # =====================================
+
+        greeting = self._greeting(text)
+
+        if greeting:
+
+            return greeting
+
+        # =====================================
+        # Error
+        # =====================================
+
+        if text.startswith("⚠"):
+
+            return (
+                "# Error\n\n"
+                f"{text}"
+                f"{self.FOOTER}"
+            )
+
+        # =====================================
+        # Search Results
+        # =====================================
+
+        if "Source:" in text or "Sources:" in text:
+
+            return (
+                "# Search Results\n\n"
+                f"{text}"
+                f"{self.FOOTER}"
+            )
+
+        # =====================================
+        # Code
+        # =====================================
+
+        if "```" in text:
+
+            return (
+                "# Code\n\n"
+                f"{text}"
+                f"{self.FOOTER}"
+            )
+
+        # =====================================
+        # Long Explanation
+        # =====================================
+
+        if len(text) > 250:
+
+            return (
+                "# Response\n\n"
+                f"{text}"
+                f"{self.FOOTER}"
+            )
+
+        # =====================================
+        # Default
+        # =====================================
+
+        return (
+            f"{text}"
+            f"{self.FOOTER}"
+        )
+
+    # =========================================
+
+    def _greeting(
+        self,
+        text: str,
+    ):
+
+        lower = text.lower()
+
+        greetings = [
+
+            "hey",
+            "hello",
+            "hi",
+            "good morning",
+            "good afternoon",
+            "good evening",
+
+        ]
+
+        if any(
+            lower.startswith(g)
+            for g in greetings
+        ):
+
+            return (
+                f"{text}"
+                f"{self.FOOTER}"
+            )
+
+        return None
 
 
 response_formatter = ResponseFormatter()
