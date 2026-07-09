@@ -68,6 +68,29 @@ class GeminiProvider(BaseProvider):
 
         return response.text.strip()
 
+    async def use_tool(
+        self,
+        tool: str,
+        query: str,
+    ):
+        """
+        Execute a Gemini tool.
+
+        NOTE:
+        Actual implementation will be added
+        in the next step.
+        """
+
+        if tool == "web_search":
+
+            raise NotImplementedError(
+                "Gemini Web Search is not implemented yet."
+            )
+
+        raise ValueError(
+            f"Unknown tool: {tool}"
+        )
+
     def _build_prompt(
         self,
         conversation: List[Dict],
