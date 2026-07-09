@@ -20,25 +20,42 @@ class ToolManager:
         }
 
         logger.info(
-            "Tool Manager Ready."
+            f"Loaded {len(self.tools)} tools."
         )
 
     async def execute(
         self,
-        tool: str,
+        tool_name: str,
         query: str,
     ):
 
-        tool = self.tools.get(tool)
+        tool = self.tools.get(
+            tool_name
+        )
 
         if tool is None:
 
             raise ValueError(
-                f"Unknown tool: {tool}"
+                f"Unknown tool: {tool_name}"
             )
+
+        logger.info(
+            f"Executing tool: {tool_name}"
+        )
 
         return await tool.execute(
             query
+        )
+
+    def register(
+        self,
+        tool,
+    ):
+
+        self.tools[tool.name] = tool
+
+        logger.info(
+            f"Registered tool: {tool.name}"
         )
 
     @property
