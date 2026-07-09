@@ -11,6 +11,8 @@ from ai.provider_manager import provider_manager
 from ai.memory_extractor import memory_extractor
 from ai.request_router import request_router
 
+from tools.manager import tool_manager
+
 from database.memory import add_message
 
 from utils.logger import logger
@@ -34,26 +36,44 @@ class AIEngine:
         user_id: int,
         message: str,
     ) -> str:
-        """
-        Process a user message.
-        """
 
         logger.info(
             f"Processing request from {user_id}"
         )
 
         # =====================================
-        # Request Router
+        # Route Request
         # =====================================
 
-        if not request_router.needs_ai(message):
+        route = request_router.route(
+            message
+        )
 
-            logger.info(
-                "Using local response."
+        # =====================================
+        # Local Response
+        # =====================================
+
+        if route["type"] == "local":
+
+            return request_router.local_response()
+
+        # =====================================
+        # Tool
+        # =====================================
+
+        if route["type"] == "tool":
+
+            result = await tool_manager.execute(
+                route["tool"],
+                message
             )
 
-            return request_router.local_response(
-                message
+            if result.success:
+
+                return result.content
+
+            return (
+                f"⚠️ {result.error}"
             )
 
         # =====================================
@@ -75,7 +95,7 @@ class AIEngine:
         )
 
         # =====================================
-        # Save Conversation
+        # Save Memory
         # =====================================
 
         try:
@@ -92,18 +112,14 @@ class AIEngine:
                 content=response
             )
 
-            logger.info(
-                f"Conversation saved for {user_id}"
-            )
-
         except Exception as error:
 
             logger.warning(
-                f"Failed to save conversation: {error}"
+                f"Memory save failed: {error}"
             )
 
         # =====================================
-        # Learn New Facts
+        # Learn Facts
         # =====================================
 
         try:
