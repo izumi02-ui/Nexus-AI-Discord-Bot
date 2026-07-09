@@ -10,6 +10,8 @@ from google import genai
 from google.genai import types
 
 from tools.base import BaseTool
+from tools.web_scraper import web_scraper
+
 from search.search_result import SearchResult
 
 from utils.settings import settings
@@ -46,6 +48,10 @@ class GoogleSearchTool(BaseTool):
 
         try:
 
+            logger.info(
+                f"Google Search: {query}"
+            )
+
             response = self.client.models.generate_content(
                 model=settings.model,
                 contents=query,
@@ -58,25 +64,80 @@ class GoogleSearchTool(BaseTool):
                 )
             )
 
-            logger.info(
-                f"Google Search: {query}"
-            )
+            text = response.text or ""
 
-            return [
+            results = [
 
                 SearchResult(
 
                     title=query,
 
-                    content=response.text,
+                    content=text,
 
                     source="Google",
 
-                    confidence=1.0,
+                    confidence=1.00,
 
                 )
 
             ]
+
+            # =====================================
+            # Future:
+            # Read grounded webpages
+            # =====================================
+
+            try:
+
+                grounding = getattr(
+                    response,
+                    "grounding_metadata",
+                    None
+                )
+
+                if grounding:
+
+                    chunks = getattr(
+                        grounding,
+                        "grounding_chunks",
+                        []
+                    )
+
+                    for chunk in chunks:
+
+                        web = getattr(
+                            chunk,
+                            "web",
+                            None
+                        )
+
+                        if web is None:
+                            continue
+
+                        uri = getattr(
+                            web,
+                            "uri",
+                            None
+                        )
+
+                        if not uri:
+                            continue
+
+                        scraped = await web_scraper.execute(
+                            uri
+                        )
+
+                        results.extend(
+                            scraped
+                        )
+
+            except Exception as error:
+
+                logger.warning(
+                    f"Grounding scrape skipped: {error}"
+                )
+
+            return results
 
         except Exception as error:
 
