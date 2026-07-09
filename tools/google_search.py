@@ -4,14 +4,34 @@ Project Nexus
 Google Search Tool
 """
 
+from typing import List
+
 from google import genai
 from google.genai import types
+
+from tools.base import BaseTool
+from search.search_result import SearchResult
 
 from utils.settings import settings
 from utils.logger import logger
 
 
-class GoogleSearchTool:
+class GoogleSearchTool(BaseTool):
+
+    @property
+    def name(self) -> str:
+
+        return "google"
+
+    @property
+    def priority(self) -> int:
+
+        return 100
+
+    @property
+    def description(self) -> str:
+
+        return "Google Search"
 
     def __init__(self):
 
@@ -19,15 +39,10 @@ class GoogleSearchTool:
             api_key=settings.gemini_api_key
         )
 
-    @property
-    def name(self):
-
-        return "web_search"
-
     async def execute(
         self,
         query: str,
-    ):
+    ) -> List[SearchResult]:
 
         try:
 
@@ -47,11 +62,21 @@ class GoogleSearchTool:
                 f"Google Search: {query}"
             )
 
-            return {
-                "success": True,
-                "content": response.text,
-                "error": None,
-            }
+            return [
+
+                SearchResult(
+
+                    title=query,
+
+                    content=response.text,
+
+                    source="Google",
+
+                    confidence=1.0,
+
+                )
+
+            ]
 
         except Exception as error:
 
@@ -59,11 +84,25 @@ class GoogleSearchTool:
                 "Google Search Failed"
             )
 
-            return {
-                "success": False,
-                "content": None,
-                "error": str(error),
-            }
+            return [
+
+                SearchResult(
+
+                    title="Google Search Failed",
+
+                    content=str(error),
+
+                    source="Google",
+
+                    confidence=0.0,
+
+                    success=False,
+
+                    error=str(error),
+
+                )
+
+            ]
 
 
 google_search = GoogleSearchTool()
