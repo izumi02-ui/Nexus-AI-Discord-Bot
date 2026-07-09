@@ -2,8 +2,6 @@
 Project Nexus
 
 Base AI Provider
-
-Every AI provider must inherit from this class.
 """
 
 from abc import ABC, abstractmethod
@@ -13,24 +11,15 @@ from ai.provider_capabilities import ProviderCapabilities
 
 
 class BaseProvider(ABC):
-    """
-    Base class for all AI providers.
-    """
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """
-        Human-readable provider name.
-        """
         pass
 
     @property
     @abstractmethod
     def capabilities(self) -> ProviderCapabilities:
-        """
-        Provider capabilities.
-        """
         pass
 
     @abstractmethod
@@ -39,29 +28,28 @@ class BaseProvider(ABC):
         user_id: int,
         conversation: List[Dict],
     ) -> str:
+        pass
+
+    @abstractmethod
+    async def use_tool(
+        self,
+        tool: str,
+        query: str,
+    ):
         """
-        Send a conversation to an AI provider.
+        Execute a provider tool.
 
-        Args:
-            user_id:
-                Discord user ID.
-
-            conversation:
-                List of conversation messages.
-
-        Returns:
-            AI response.
+        Example:
+            web_search
+            vision
+            image_generation
         """
-        raise NotImplementedError
+        pass
 
     def supports(
         self,
         capability: str,
     ) -> bool:
-        """
-        Check whether the provider supports
-        a capability.
-        """
 
         return self.capabilities.supports(
             capability
