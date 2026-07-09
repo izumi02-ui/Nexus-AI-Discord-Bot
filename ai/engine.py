@@ -16,9 +16,7 @@ from tools.manager import tool_manager
 from database.memory import add_message
 
 from utils.logger import logger
-
-# Future
-# from utils.response_formatter import format_response
+from utils.response_formatter import response_formatter
 
 
 class AIEngine:
@@ -58,7 +56,9 @@ class AIEngine:
 
         if route["type"] == "local":
 
-            return request_router.local_response()
+            return response_formatter.format(
+                request_router.local_response()
+            )
 
         # =====================================
         # Tool Request
@@ -73,12 +73,13 @@ class AIEngine:
 
             if result.success:
 
-                # Future:
-                # return format_response(result.content)
+                return response_formatter.format(
+                    result.content
+                )
 
-                return result.content
-
-            return f"⚠️ {result.error}"
+            return response_formatter.format(
+                f"⚠️ {result.error}"
+            )
 
         # =====================================
         # Build Conversation
@@ -97,9 +98,6 @@ class AIEngine:
             user_id=user_id,
             conversation=conversation
         )
-
-        # Future:
-        # response = format_response(response)
 
         # =====================================
         # Save Conversation
@@ -143,7 +141,13 @@ class AIEngine:
                 f"Memory extraction failed: {error}"
             )
 
-        return response
+        # =====================================
+        # Format Final Response
+        # =====================================
+
+        return response_formatter.format(
+            response
+        )
 
 
 engine = AIEngine()
