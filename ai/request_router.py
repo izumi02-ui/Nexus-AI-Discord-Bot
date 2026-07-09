@@ -1,13 +1,7 @@
 """
 Project Nexus
 
-Request Router
-
-Routes user requests to either:
-
-- Local Response
-- AI
-- Tool
+Smart Request Router
 """
 
 from utils.logger import logger
@@ -28,38 +22,162 @@ class RequestRouter:
 
     }
 
-    WEB_SEARCH_KEYWORDS = {
+    TOOL_RULES = {
 
-        "latest",
-        "today",
-        "yesterday",
-        "tomorrow",
-        "news",
-        "current",
-        "currently",
-        "recent",
-        "update",
-        "updates",
-        "released",
-        "release",
-        "price",
-        "weather",
-        "temperature",
-        "forecast",
-        "score",
-        "match",
-        "won",
-        "winner",
-        "results",
-        "stock",
-        "bitcoin",
-        "crypto",
-        "trending",
-        "breaking",
-        "live",
-        "happened",
-        "who is",
-        "what is happening",
+        # =====================================
+        # Weather
+        # =====================================
+
+        "weather": [
+            "weather",
+            "forecast",
+            "temperature",
+            "rain",
+            "snow",
+            "humidity",
+            "wind",
+            "storm",
+        ],
+
+        # =====================================
+        # Maps
+        # =====================================
+
+        "maps": [
+            "where",
+            "location",
+            "distance",
+            "directions",
+            "route",
+            "near",
+            "nearby",
+            "map",
+        ],
+
+        # =====================================
+        # Currency
+        # =====================================
+
+        "currency": [
+            "currency",
+            "exchange",
+            "convert",
+            "usd",
+            "eur",
+            "inr",
+            "jpy",
+            "gbp",
+        ],
+
+        # =====================================
+        # Time
+        # =====================================
+
+        "time": [
+            "time",
+            "timezone",
+            "clock",
+        ],
+
+        # =====================================
+        # Translator
+        # =====================================
+
+        "translator": [
+            "translate",
+            "translation",
+            "meaning",
+        ],
+
+        # =====================================
+        # GitHub
+        # =====================================
+
+        "github": [
+            "github",
+            "repository",
+            "repo",
+            "source code",
+            "open source",
+        ],
+
+        # =====================================
+        # Stack Overflow
+        # =====================================
+
+        "stackoverflow": [
+            "error",
+            "exception",
+            "bug",
+            "traceback",
+            "stack overflow",
+        ],
+
+        # =====================================
+        # arXiv
+        # =====================================
+
+        "arxiv": [
+            "paper",
+            "research",
+            "journal",
+            "publication",
+            "arxiv",
+        ],
+
+        # =====================================
+        # Steam
+        # =====================================
+
+        "steam": [
+            "steam",
+            "game",
+            "games",
+            "dlc",
+            "achievement",
+            "workshop",
+        ],
+
+        # =====================================
+        # Spotify
+        # =====================================
+
+        "spotify": [
+            "song",
+            "music",
+            "album",
+            "artist",
+            "playlist",
+            "spotify",
+        ],
+
+        # =====================================
+        # YouTube
+        # =====================================
+
+        "youtube": [
+            "video",
+            "youtube",
+            "watch",
+            "tutorial",
+        ],
+
+        # =====================================
+        # News
+        # =====================================
+
+        "news": [
+            "news",
+            "latest",
+            "today",
+            "yesterday",
+            "breaking",
+            "current",
+            "recent",
+            "update",
+            "updates",
+        ],
+
     }
 
     def route(
@@ -75,49 +193,70 @@ class RequestRouter:
 
         if text in self.SIMPLE_GREETINGS:
 
-            logger.info(
-                "Greeting detected."
-            )
-
             return {
-                "type": "local"
+
+                "type": "local",
+
             }
 
         # =====================================
-        # Web Search
+        # Tool Selection
         # =====================================
 
-        if any(
-            keyword in text
-            for keyword in self.WEB_SEARCH_KEYWORDS
-        ):
+        selected = []
 
-            logger.info(
-                "Web Search requested."
-            )
+        for tool, keywords in self.TOOL_RULES.items():
 
-            return {
-                "type": "tool",
-                "tool": "web_search"
-            }
+            if any(
 
-        # =====================================
-        # AI
-        # =====================================
+                keyword in text
+
+                for keyword in keywords
+
+            ):
+
+                selected.append(tool)
+
+        # Always search these
+
+        selected.extend([
+
+            "google",
+            "wikipedia",
+            "reddit",
+
+        ])
+
+        # Remove duplicates
+
+        selected = list(
+
+            dict.fromkeys(selected)
+
+        )
 
         logger.info(
-            "AI request."
+
+            f"Selected tools: {selected}"
+
         )
 
         return {
-            "type": "ai"
+
+            "type": "search",
+
+            "tools": selected,
+
         }
 
     def local_response(self):
 
         return (
+
             "Hey! 👋 "
+
             "How can I help you today?"
+
         )
 
 
