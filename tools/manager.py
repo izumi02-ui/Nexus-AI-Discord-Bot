@@ -4,7 +4,7 @@ Project Nexus
 Tool Manager
 """
 
-from tools.web_search import web_search
+from tools.google_search import google_search
 
 from utils.logger import logger
 
@@ -15,47 +15,32 @@ class ToolManager:
 
         self.tools = {
 
-            web_search.name: web_search,
+            google_search.name: google_search,
 
         }
 
         logger.info(
-            f"Loaded {len(self.tools)} tools."
+            "Tool Manager Ready."
         )
 
     async def execute(
         self,
-        tool_name: str,
+        tool: str,
         query: str,
     ):
 
-        tool = self.tools.get(
-            tool_name
+        tool_instance = self.tools.get(
+            tool
         )
 
-        if tool is None:
+        if tool_instance is None:
 
             raise ValueError(
-                f"Unknown tool: {tool_name}"
+                f"Unknown tool: {tool}"
             )
 
-        logger.info(
-            f"Executing tool: {tool_name}"
-        )
-
-        return await tool.execute(
+        return await tool_instance.execute(
             query
-        )
-
-    def register(
-        self,
-        tool,
-    ):
-
-        self.tools[tool.name] = tool
-
-        logger.info(
-            f"Registered tool: {tool.name}"
         )
 
     @property
