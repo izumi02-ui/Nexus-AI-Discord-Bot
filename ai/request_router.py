@@ -33,6 +33,7 @@ class RequestRouter:
         "latest",
         "today",
         "yesterday",
+        "tomorrow",
         "news",
         "current",
         "currently",
@@ -43,9 +44,22 @@ class RequestRouter:
         "release",
         "price",
         "weather",
+        "temperature",
+        "forecast",
         "score",
+        "match",
         "won",
+        "winner",
+        "results",
+        "stock",
+        "bitcoin",
+        "crypto",
+        "trending",
+        "breaking",
+        "live",
         "happened",
+        "who is",
+        "what is happening",
     }
 
     def route(
@@ -55,9 +69,9 @@ class RequestRouter:
 
         text = message.lower().strip()
 
-        # ==========================
+        # =====================================
         # Greeting
-        # ==========================
+        # =====================================
 
         if text in self.SIMPLE_GREETINGS:
 
@@ -69,26 +83,27 @@ class RequestRouter:
                 "type": "local"
             }
 
-        # ==========================
+        # =====================================
         # Web Search
-        # ==========================
+        # =====================================
 
-        for keyword in self.WEB_SEARCH_KEYWORDS:
+        if any(
+            keyword in text
+            for keyword in self.WEB_SEARCH_KEYWORDS
+        ):
 
-            if keyword in text:
+            logger.info(
+                "Web Search requested."
+            )
 
-                logger.info(
-                    "Web search requested."
-                )
+            return {
+                "type": "tool",
+                "tool": "web_search"
+            }
 
-                return {
-                    "type": "tool",
-                    "tool": "web_search"
-                }
-
-        # ==========================
+        # =====================================
         # AI
-        # ==========================
+        # =====================================
 
         logger.info(
             "AI request."
