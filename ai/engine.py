@@ -17,6 +17,9 @@ from database.memory import add_message
 
 from utils.logger import logger
 
+# Future
+# from utils.response_formatter import format_response
+
 
 class AIEngine:
     """
@@ -58,7 +61,7 @@ class AIEngine:
             return request_router.local_response()
 
         # =====================================
-        # Tool
+        # Tool Request
         # =====================================
 
         if route["type"] == "tool":
@@ -70,11 +73,12 @@ class AIEngine:
 
             if result.success:
 
+                # Future:
+                # return format_response(result.content)
+
                 return result.content
 
-            return (
-                f"⚠️ {result.error}"
-            )
+            return f"⚠️ {result.error}"
 
         # =====================================
         # Build Conversation
@@ -94,8 +98,11 @@ class AIEngine:
             conversation=conversation
         )
 
+        # Future:
+        # response = format_response(response)
+
         # =====================================
-        # Save Memory
+        # Save Conversation
         # =====================================
 
         try:
