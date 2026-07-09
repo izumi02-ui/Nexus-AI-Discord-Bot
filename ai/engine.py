@@ -71,14 +71,14 @@ class AIEngine:
                 message
             )
 
-            if result.success:
+            if result["success"]:
 
                 return response_formatter.format(
-                    result.content
+                    result["content"]
                 )
 
             return response_formatter.format(
-                f"⚠️ {result.error}"
+                f"⚠️ {result['error']}"
             )
 
         # =====================================
