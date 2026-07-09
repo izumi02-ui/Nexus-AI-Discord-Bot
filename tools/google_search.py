@@ -47,11 +47,11 @@ class GoogleSearchTool:
                 f"Google Search: {query}"
             )
 
-            return types.SimpleNamespace(
-                success=True,
-                content=response.text,
-                error=None,
-            )
+            return {
+                "success": True,
+                "content": response.text,
+                "error": None,
+            }
 
         except Exception as error:
 
@@ -59,11 +59,11 @@ class GoogleSearchTool:
                 "Google Search Failed"
             )
 
-            return types.SimpleNamespace(
-                success=False,
-                content=None,
-                error=str(error),
-            )
+            return {
+                "success": False,
+                "content": None,
+                "error": str(error),
+            }
 
 
 google_search = GoogleSearchTool()
