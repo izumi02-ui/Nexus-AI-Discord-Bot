@@ -15,6 +15,7 @@ from database.database import setup_database
 from database.fact_manager import get_facts
 
 from utils.logger import logger
+from utils.discord_utils import send_long_message
 
 
 # ============================================
@@ -95,17 +96,21 @@ async def on_message(message):
                     message=user_message
                 )
 
-                await message.reply(response)
+                await send_long_message(
+                    message.channel,
+                    response
+                )
 
             except Exception as error:
 
-                logger.exception("Failed to process mention")
+                logger.exception(
+                    "Failed to process mention"
+                )
 
                 await message.reply(
                     f"⚠️ {error}"
                 )
 
-    # Keep commands working
     await bot.process_commands(message)
 
 
@@ -128,11 +133,16 @@ async def ai(ctx, *, message):
                 message=message
             )
 
-            await ctx.send(response)
+            await send_long_message(
+                ctx,
+                response
+            )
 
         except Exception as error:
 
-            logger.exception("AI command failed")
+            logger.exception(
+                "AI command failed"
+            )
 
             await ctx.send(
                 f"⚠️ {error}"
@@ -160,7 +170,8 @@ async def memory(ctx):
         for fact in facts
     )
 
-    await ctx.send(
+    await send_long_message(
+        ctx,
         f"## 🧠 Things I remember about you:\n{text}"
     )
 
