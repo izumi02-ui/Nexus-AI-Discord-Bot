@@ -3,19 +3,18 @@ Project Nexus
 
 Search Aggregator
 
-Collects results from multiple
-search providers.
+Runs multiple search providers
+concurrently and merges results.
 """
 
+import asyncio
 from typing import List
 
 from search.search_result import SearchResult
+from search.ranking import ranking
+from search.cache import cache
 
-from tools.google_search import google_search
-from tools.wikipedia import wikipedia
-from tools.github import github
-from tools.reddit import reddit
-from tools.news import news
+from tools.manager import tool_manager
 
 from utils.logger import logger
 
@@ -24,51 +23,134 @@ class SearchAggregator:
 
     def __init__(self):
 
-        self.providers = [
-
-            google_search,
-            wikipedia,
-            github,
-            reddit,
-            news,
-
-        ]
+        logger.info(
+            "Search Aggregator Ready."
+        )
 
     async def search(
         self,
         query: str,
+        tools: List[str] | None = None,
     ) -> List[SearchResult]:
 
+        # ==========================
+        # Cache
+        # ==========================
+
+        cached = cache.get(query)
+
+        if cached is not None:
+
+            logger.info(
+                f"Cache Hit: {query}"
+            )
+
+            return cached
+
+        # ==========================
+        # Select Tools
+        # ==========================
+
+        if tools is None:
+
+            providers = [
+
+                tool_manager.get(name)
+
+                for name in tool_manager.available
+
+            ]
+
+        else:
+
+            providers = [
+
+                tool_manager.get(name)
+
+                for name in tools
+
+            ]
+
+        providers = [
+
+            provider
+
+            for provider in providers
+
+            if provider is not None
+        ]
+
         logger.info(
-            f"Searching: {query}"
+            f"Searching with {len(providers)} providers."
         )
+
+        # ==========================
+        # Execute
+        # ==========================
+
+        tasks = [
+
+            provider.execute(query)
+
+            for provider in providers
+        ]
+
+        responses = await asyncio.gather(
+
+            *tasks,
+
+            return_exceptions=True,
+
+        )
+
+        # ==========================
+        # Merge Results
+        # ==========================
 
         results = []
 
-        for provider in self.providers:
+        for provider, response in zip(
+            providers,
+            responses,
+        ):
 
-            try:
-
-                result = await provider.execute(
-                    query
-                )
-
-                if result is None:
-                    continue
-
-                if isinstance(result, list):
-
-                    results.extend(result)
-
-                else:
-
-                    results.append(result)
-
-            except Exception as error:
+            if isinstance(
+                response,
+                Exception,
+            ):
 
                 logger.warning(
-                    f"{provider.name} failed: {error}"
+                    f"{provider.name} failed: {response}"
                 )
+
+                continue
+
+            if not response:
+
+                continue
+
+            results.extend(response)
+
+        # ==========================
+        # Rank
+        # ==========================
+
+        results = ranking.rank(
+            results
+        )
+
+        # ==========================
+        # Cache
+        # ==========================
+
+        cache.set(
+            query,
+            results,
+        )
+
+        logger.info(
+            f"Collected {len(results)} results."
+        )
 
         return results
 
