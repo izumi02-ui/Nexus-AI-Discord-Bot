@@ -3,3 +3,6 @@ google-genai==1.28.0
 python-dotenv>=1.0.0
 wikipedia>=1.4.0
 requests>=2.32.0
+beautifulsoup4>=4.12.3
+lxml>=5.2.2
+trafilatura>=1.12.2
