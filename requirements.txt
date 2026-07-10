@@ -1,14 +1,10 @@
 discord.py>=2.4.0
-
-# AI Providers
 google-genai>=1.28.0
 openai>=1.97.1
 anthropic>=0.57.1
 groq>=0.30.0
 mistralai>=1.9.3
 cohere>=5.16.2
-
-# Utilities
 python-dotenv>=1.0.0
 requests>=2.32.0
 wikipedia>=1.4.0
