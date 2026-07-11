@@ -26,7 +26,7 @@ DISCORD_TOKEN = os.getenv(
 )
 
 # ==========================================
-# AI Providers
+# AI API Keys
 # ==========================================
 
 GEMINI_API_KEY = os.getenv(
@@ -62,21 +62,21 @@ COHERE_API_KEY = os.getenv(
 )
 
 # ==========================================
-# Local Providers
+# Local AI
 # ==========================================
 
 OLLAMA_URL = os.getenv(
     "OLLAMA_URL",
-    "http://localhost:11434"
+    "http://127.0.0.1:11434"
 )
 
 LMSTUDIO_URL = os.getenv(
     "LMSTUDIO_URL",
-    "http://localhost:1234/v1"
+    "http://127.0.0.1:1234/v1"
 )
 
 # ==========================================
-# Default AI
+# Default Provider
 # ==========================================
 
 DEFAULT_PROVIDER = os.getenv(
@@ -84,9 +84,98 @@ DEFAULT_PROVIDER = os.getenv(
     "gemini"
 )
 
-DEFAULT_MODEL = os.getenv(
-    "DEFAULT_MODEL",
+# ==========================================
+# AI Models
+# ==========================================
+
+GEMINI_MODEL = os.getenv(
+    "GEMINI_MODEL",
     "gemini-2.5-flash"
+)
+
+OPENAI_MODEL = os.getenv(
+    "OPENAI_MODEL",
+    "gpt-5"
+)
+
+OPENROUTER_MODEL = os.getenv(
+    "OPENROUTER_MODEL",
+    "google/gemma-3-27b-it:free"
+)
+
+CLAUDE_MODEL = os.getenv(
+    "CLAUDE_MODEL",
+    "claude-sonnet-4"
+)
+
+GROQ_MODEL = os.getenv(
+    "GROQ_MODEL",
+    "llama-3.3-70b-versatile"
+)
+
+DEEPSEEK_MODEL = os.getenv(
+    "DEEPSEEK_MODEL",
+    "deepseek-chat"
+)
+
+MISTRAL_MODEL = os.getenv(
+    "MISTRAL_MODEL",
+    "mistral-large-latest"
+)
+
+COHERE_MODEL = os.getenv(
+    "COHERE_MODEL",
+    "command-a"
+)
+
+OLLAMA_MODEL = os.getenv(
+    "OLLAMA_MODEL",
+    "qwen3:4b"
+)
+
+LMSTUDIO_MODEL = os.getenv(
+    "LMSTUDIO_MODEL",
+    "qwen3-4b"
+)
+
+# ==========================================
+# Media APIs
+# ==========================================
+
+YOUTUBE_API_KEY = os.getenv(
+    "YOUTUBE_API_KEY"
+)
+
+SPOTIFY_CLIENT_ID = os.getenv(
+    "SPOTIFY_CLIENT_ID"
+)
+
+SPOTIFY_CLIENT_SECRET = os.getenv(
+    "SPOTIFY_CLIENT_SECRET"
+)
+
+# ==========================================
+# Optional APIs
+# ==========================================
+
+GITHUB_TOKEN = os.getenv(
+    "GITHUB_TOKEN"
+)
+
+REDDIT_CLIENT_ID = os.getenv(
+    "REDDIT_CLIENT_ID"
+)
+
+REDDIT_CLIENT_SECRET = os.getenv(
+    "REDDIT_CLIENT_SECRET"
+)
+
+REDDIT_USER_AGENT = os.getenv(
+    "REDDIT_USER_AGENT"
+)
+
+NEWS_API_KEY = os.getenv(
+    "NEWS_API_KEY"
 )
 
 # ==========================================
