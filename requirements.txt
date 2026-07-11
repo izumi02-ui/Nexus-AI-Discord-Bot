@@ -1,13 +1,55 @@
 discord.py>=2.4.0
+
+# AI Providers
 google-genai>=1.28.0
 openai>=1.97.1
 anthropic>=0.57.1
 groq>=0.30.0
 mistralai>=1.9.3
 cohere>=5.16.2
+
+# Utilities
 python-dotenv>=1.0.0
 requests>=2.32.0
+httpx>=0.28.1
+aiohttp>=3.12.15
+
+# Search
 wikipedia>=1.4.0
 beautifulsoup4>=4.12.3
 lxml>=5.2.2
-trafilatura>=1.12.2
+trafilatura>=2.0.0
+
+# Parsing
+markdownify>=1.1.0
+feedparser>=6.0.11
+
+# Images
+Pillow>=11.3.0
+
+# OCR
+pytesseract>=0.3.13
+
+# GitHub
+PyGithub>=2.6.1
+
+# Reddit
+praw>=7.8.1
+
+# YouTube
+google-api-python-client>=2.177.0
+
+# Spotify
+spotipy>=2.25.1
+
+# Weather
+python-weather>=2.1.0
+
+# Translation
+deep-translator>=1.11.4
+
+# Arxiv
+arxiv>=2.2.0
+
+# Steam
+steam>=1.4.4
