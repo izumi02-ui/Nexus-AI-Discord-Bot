@@ -4,9 +4,9 @@ Project Nexus
 Groq Provider
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
-from groq import Groq
+from groq import AsyncGroq
 
 from ai.provider_capabilities import ProviderCapabilities
 from ai.providers.base import BaseProvider
@@ -19,28 +19,45 @@ class GroqProvider(BaseProvider):
 
     @property
     def name(self) -> str:
-
         return "Groq"
+
+    @property
+    def model(self) -> str:
+        return settings.groq_model
 
     @property
     def capabilities(self):
 
         return ProviderCapabilities(
-            web_search=False,
-            vision=False,
-            files=False,
+
             function_calling=True,
-            image_generation=False,
-            code_execution=False,
+
+            reasoning=True,
+
+            streaming=True,
+
+        )
+
+    @property
+    def available(self) -> bool:
+
+        return bool(
+            settings.groq_api_key
         )
 
     def __init__(self):
+
+        if not self.available:
+
+            raise RuntimeError(
+                "Groq API key missing."
+            )
 
         logger.info(
             "Initializing Groq..."
         )
 
-        self.client = Groq(
+        self.client = AsyncGroq(
             api_key=settings.groq_api_key
         )
 
@@ -54,9 +71,9 @@ class GroqProvider(BaseProvider):
         conversation: List[Dict],
     ) -> str:
 
-        response = self.client.chat.completions.create(
+        response = await self.client.chat.completions.create(
 
-            model=settings.model,
+            model=self.model,
 
             messages=conversation,
 
@@ -66,10 +83,14 @@ class GroqProvider(BaseProvider):
             f"{self.name} replied to {user_id}"
         )
 
-        return (
-            response
-            .choices[0]
-            .message
-            .content
-            .strip()
+        return response.choices[0].message.content.strip()
+
+    async def use_tool(
+        self,
+        tool: str,
+        query: str,
+    ):
+
+        raise NotImplementedError(
+            f"{tool} is not implemented for Groq."
         )
