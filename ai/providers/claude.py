@@ -4,9 +4,9 @@ Project Nexus
 Claude Provider
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 
 from ai.provider_capabilities import ProviderCapabilities
 from ai.providers.base import BaseProvider
@@ -19,28 +19,49 @@ class ClaudeProvider(BaseProvider):
 
     @property
     def name(self) -> str:
-
         return "Claude"
+
+    @property
+    def model(self) -> str:
+        return settings.claude_model
 
     @property
     def capabilities(self):
 
         return ProviderCapabilities(
-            web_search=False,
+
             vision=True,
+
             files=True,
+
             function_calling=True,
-            image_generation=False,
-            code_execution=False,
+
+            reasoning=True,
+
+            streaming=True,
+
+        )
+
+    @property
+    def available(self) -> bool:
+
+        return bool(
+            settings.claude_api_key
         )
 
     def __init__(self):
+
+        if not self.available:
+
+            raise RuntimeError(
+                "Claude API key missing."
+            )
 
         logger.info(
             "Initializing Claude..."
         )
 
-        self.client = Anthropic(
+        self.client = AsyncAnthropic(
             api_key=settings.claude_api_key
         )
 
@@ -74,9 +95,9 @@ class ClaudeProvider(BaseProvider):
 
                 })
 
-        response = self.client.messages.create(
+        response = await self.client.messages.create(
 
-            model=settings.model,
+            model=self.model,
 
             max_tokens=4096,
 
@@ -91,3 +112,13 @@ class ClaudeProvider(BaseProvider):
         )
 
         return response.content[0].text.strip()
+
+    async def use_tool(
+        self,
+        tool: str,
+        query: str,
+    ):
+
+        raise NotImplementedError(
+            f"{tool} is not implemented for Claude."
+        )
