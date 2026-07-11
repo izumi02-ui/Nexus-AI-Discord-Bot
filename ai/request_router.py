@@ -132,6 +132,10 @@ class RequestRouter:
 
         text = message.lower().strip()
 
+        # =====================================
+        # Local Response
+        # =====================================
+
         if text in self.SIMPLE_GREETINGS:
 
             return {
@@ -139,6 +143,10 @@ class RequestRouter:
                 "type": "local",
 
             }
+
+        # =====================================
+        # Tool Selection
+        # =====================================
 
         selected = []
 
@@ -154,12 +162,16 @@ class RequestRouter:
 
                 selected.append(tool)
 
+        # Always include these
+
         selected.extend([
 
             "google",
             "wikipedia",
 
         ])
+
+        # Remove duplicates
 
         selected = list(
 
@@ -168,21 +180,29 @@ class RequestRouter:
         )
 
         logger.info(
+
             f"Selected tools: {selected}"
+
         )
+
+        # =====================================
+        # Search Route
+        # =====================================
 
         return {
 
-            "type": "tool",
+            "type": "search",
 
-            "tool": selected,
+            "tools": selected,
 
         }
 
     def local_response(self):
 
         return (
+
             "Hey! 👋 How can I help you today?"
+
         )
 
 
