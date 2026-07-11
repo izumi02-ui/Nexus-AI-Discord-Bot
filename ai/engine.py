@@ -11,7 +11,7 @@ from ai.provider_manager import provider_manager
 from ai.memory_extractor import memory_extractor
 from ai.request_router import request_router
 
-from tools.manager import tool_manager
+from search.aggregator import aggregator
 
 from database.memory import add_message
 
@@ -61,42 +61,88 @@ class AIEngine:
             )
 
         # =====================================
-        # Tool Request
+        # Search
         # =====================================
 
-        if route["type"] == "tool":
+        if route["type"] == "search":
 
-            result = await tool_manager.execute(
-                route["tool"],
-                message
-            )
+            try:
 
-            if result["success"]:
+                results = await aggregator.search(
 
-                return response_formatter.format(
-                    result["content"]
+                    query=message,
+
+                    tools=route["tools"],
+
                 )
 
-            return response_formatter.format(
-                f"⚠️ {result['error']}"
-            )
+                if results:
+
+                    context = "\n\n".join(
+
+                        f"[{result.source}] {result.content}"
+
+                        for result in results
+
+                        if result.success
+
+                    )
+
+                else:
+
+                    context = ""
+
+            except Exception as error:
+
+                logger.warning(
+                    f"Search failed: {error}"
+                )
+
+                context = ""
+
+        else:
+
+            context = ""
 
         # =====================================
         # Build Conversation
         # =====================================
 
         conversation = await conversation_manager.build(
+
             user_id=user_id,
-            message=message
+
+            message=message,
+
         )
+
+        # =====================================
+        # Inject Search Context
+        # =====================================
+
+        if context:
+
+            conversation.append({
+
+                "role": "system",
+
+                "content": (
+                    "Use the following search results when answering.\n\n"
+                    + context
+                )
+
+            })
 
         # =====================================
         # Ask Provider
         # =====================================
 
         response = await self.provider.ask(
+
             user_id=user_id,
-            conversation=conversation
+
+            conversation=conversation,
+
         )
 
         # =====================================
@@ -106,15 +152,23 @@ class AIEngine:
         try:
 
             add_message(
+
                 user_id=user_id,
+
                 role="user",
-                content=message
+
+                content=message,
+
             )
 
             add_message(
+
                 user_id=user_id,
+
                 role="assistant",
-                content=response
+
+                content=response,
+
             )
 
         except Exception as error:
@@ -130,9 +184,13 @@ class AIEngine:
         try:
 
             memory_extractor.extract(
+
                 user_id=user_id,
+
                 message=message,
-                response=response
+
+                response=response,
+
             )
 
         except Exception as error:
@@ -142,7 +200,7 @@ class AIEngine:
             )
 
         # =====================================
-        # Format Final Response
+        # Format
         # =====================================
 
         return response_formatter.format(
