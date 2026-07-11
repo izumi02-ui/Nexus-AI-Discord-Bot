@@ -24,10 +24,6 @@ class RequestRouter:
 
     TOOL_RULES = {
 
-        # =====================================
-        # Weather
-        # =====================================
-
         "weather": [
             "weather",
             "forecast",
@@ -38,10 +34,6 @@ class RequestRouter:
             "wind",
             "storm",
         ],
-
-        # =====================================
-        # Maps
-        # =====================================
 
         "maps": [
             "where",
@@ -54,10 +46,6 @@ class RequestRouter:
             "map",
         ],
 
-        # =====================================
-        # Currency
-        # =====================================
-
         "currency": [
             "currency",
             "exchange",
@@ -65,13 +53,9 @@ class RequestRouter:
             "usd",
             "eur",
             "inr",
-            "jpy",
             "gbp",
+            "jpy",
         ],
-
-        # =====================================
-        # Time
-        # =====================================
 
         "time": [
             "time",
@@ -79,19 +63,11 @@ class RequestRouter:
             "clock",
         ],
 
-        # =====================================
-        # Translator
-        # =====================================
-
         "translator": [
             "translate",
             "translation",
             "meaning",
         ],
-
-        # =====================================
-        # GitHub
-        # =====================================
 
         "github": [
             "github",
@@ -101,21 +77,12 @@ class RequestRouter:
             "open source",
         ],
 
-        # =====================================
-        # Stack Overflow
-        # =====================================
-
         "stackoverflow": [
             "error",
             "exception",
-            "bug",
             "traceback",
-            "stack overflow",
+            "bug",
         ],
-
-        # =====================================
-        # arXiv
-        # =====================================
 
         "arxiv": [
             "paper",
@@ -125,57 +92,35 @@ class RequestRouter:
             "arxiv",
         ],
 
-        # =====================================
-        # Steam
-        # =====================================
-
         "steam": [
             "steam",
             "game",
             "games",
-            "dlc",
-            "achievement",
-            "workshop",
         ],
 
-        # =====================================
-        # Spotify
-        # =====================================
-
         "spotify": [
+            "spotify",
             "song",
             "music",
             "album",
             "artist",
             "playlist",
-            "spotify",
         ],
 
-        # =====================================
-        # YouTube
-        # =====================================
-
         "youtube": [
-            "video",
             "youtube",
+            "video",
             "watch",
             "tutorial",
         ],
 
-        # =====================================
-        # News
-        # =====================================
-
         "news": [
             "news",
             "latest",
-            "today",
-            "yesterday",
             "breaking",
+            "today",
             "current",
             "recent",
-            "update",
-            "updates",
         ],
 
     }
@@ -187,10 +132,6 @@ class RequestRouter:
 
         text = message.lower().strip()
 
-        # =====================================
-        # Greeting
-        # =====================================
-
         if text in self.SIMPLE_GREETINGS:
 
             return {
@@ -198,10 +139,6 @@ class RequestRouter:
                 "type": "local",
 
             }
-
-        # =====================================
-        # Tool Selection
-        # =====================================
 
         selected = []
 
@@ -217,17 +154,12 @@ class RequestRouter:
 
                 selected.append(tool)
 
-        # Always search these
-
         selected.extend([
 
             "google",
             "wikipedia",
-            "reddit",
 
         ])
-
-        # Remove duplicates
 
         selected = list(
 
@@ -236,27 +168,21 @@ class RequestRouter:
         )
 
         logger.info(
-
             f"Selected tools: {selected}"
-
         )
 
         return {
 
-            "type": "search",
+            "type": "tool",
 
-            "tools": selected,
+            "tool": selected,
 
         }
 
     def local_response(self):
 
         return (
-
-            "Hey! 👋 "
-
-            "How can I help you today?"
-
+            "Hey! 👋 How can I help you today?"
         )
 
 
