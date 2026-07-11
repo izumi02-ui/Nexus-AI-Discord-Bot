@@ -4,9 +4,9 @@ Project Nexus
 Cohere Provider
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
-from cohere import ClientV2
+from cohere import AsyncClientV2
 
 from ai.provider_capabilities import ProviderCapabilities
 from ai.providers.base import BaseProvider
@@ -19,28 +19,45 @@ class CohereProvider(BaseProvider):
 
     @property
     def name(self) -> str:
-
         return "Cohere"
+
+    @property
+    def model(self) -> str:
+        return settings.cohere_model
 
     @property
     def capabilities(self):
 
         return ProviderCapabilities(
-            web_search=False,
-            vision=False,
-            files=False,
+
             function_calling=True,
-            image_generation=False,
-            code_execution=False,
+
+            reasoning=True,
+
+            streaming=True,
+
+        )
+
+    @property
+    def available(self) -> bool:
+
+        return bool(
+            settings.cohere_api_key
         )
 
     def __init__(self):
+
+        if not self.available:
+
+            raise RuntimeError(
+                "Cohere API key missing."
+            )
 
         logger.info(
             "Initializing Cohere..."
         )
 
-        self.client = ClientV2(
+        self.client = AsyncClientV2(
             api_key=settings.cohere_api_key
         )
 
@@ -54,9 +71,9 @@ class CohereProvider(BaseProvider):
         conversation: List[Dict],
     ) -> str:
 
-        response = self.client.chat(
+        response = await self.client.chat(
 
-            model=settings.model,
+            model=self.model,
 
             messages=conversation,
 
@@ -67,3 +84,13 @@ class CohereProvider(BaseProvider):
         )
 
         return response.message.content[0].text.strip()
+
+    async def use_tool(
+        self,
+        tool: str,
+        query: str,
+    ):
+
+        raise NotImplementedError(
+            f"{tool} is not implemented for Cohere."
+        )
