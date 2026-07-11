@@ -2,38 +2,9 @@
 Project Nexus
 
 Settings Manager
-
-Provides centralized access to all
-application settings.
 """
 
-from config import (
-    PROJECT_NAME,
-    VERSION,
-
-    DISCORD_TOKEN,
-
-    GEMINI_API_KEY,
-    OPENAI_API_KEY,
-    OPENROUTER_API_KEY,
-    CLAUDE_API_KEY,
-    GROQ_API_KEY,
-    DEEPSEEK_API_KEY,
-    MISTRAL_API_KEY,
-    COHERE_API_KEY,
-
-    OLLAMA_URL,
-    LMSTUDIO_URL,
-
-    DEFAULT_PROVIDER,
-    DEFAULT_MODEL,
-
-    DATABASE_NAME,
-    MEMORY_LIMIT,
-
-    DEBUG,
-    LOG_LEVEL,
-)
+from config import *
 
 
 class Settings:
@@ -54,7 +25,13 @@ class Settings:
         self.discord_token = DISCORD_TOKEN
 
         # =====================================
-        # AI Providers
+        # Provider
+        # =====================================
+
+        self.provider = DEFAULT_PROVIDER
+
+        # =====================================
+        # API Keys
         # =====================================
 
         self.gemini_api_key = GEMINI_API_KEY
@@ -67,18 +44,26 @@ class Settings:
         self.cohere_api_key = COHERE_API_KEY
 
         # =====================================
-        # Local Providers
+        # Models
+        # =====================================
+
+        self.gemini_model = GEMINI_MODEL
+        self.openai_model = OPENAI_MODEL
+        self.openrouter_model = OPENROUTER_MODEL
+        self.claude_model = CLAUDE_MODEL
+        self.groq_model = GROQ_MODEL
+        self.deepseek_model = DEEPSEEK_MODEL
+        self.mistral_model = MISTRAL_MODEL
+        self.cohere_model = COHERE_MODEL
+        self.ollama_model = OLLAMA_MODEL
+        self.lmstudio_model = LMSTUDIO_MODEL
+
+        # =====================================
+        # Local
         # =====================================
 
         self.ollama_url = OLLAMA_URL
         self.lmstudio_url = LMSTUDIO_URL
-
-        # =====================================
-        # Defaults
-        # =====================================
-
-        self.provider = DEFAULT_PROVIDER
-        self.model = DEFAULT_MODEL
 
         # =====================================
         # Database
@@ -88,7 +73,7 @@ class Settings:
         self.memory_limit = MEMORY_LIMIT
 
         # =====================================
-        # Debug
+        # Logging
         # =====================================
 
         self.debug = DEBUG
