@@ -4,7 +4,7 @@ Project Nexus
 Mistral Provider
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
 from mistralai import Mistral
 
@@ -19,22 +19,43 @@ class MistralProvider(BaseProvider):
 
     @property
     def name(self) -> str:
-
         return "Mistral"
+
+    @property
+    def model(self) -> str:
+        return settings.mistral_model
 
     @property
     def capabilities(self):
 
         return ProviderCapabilities(
-            web_search=False,
+
             vision=True,
+
             files=True,
+
             function_calling=True,
-            image_generation=False,
-            code_execution=False,
+
+            reasoning=True,
+
+            streaming=True,
+
+        )
+
+    @property
+    def available(self) -> bool:
+
+        return bool(
+            settings.mistral_api_key
         )
 
     def __init__(self):
+
+        if not self.available:
+
+            raise RuntimeError(
+                "Mistral API key missing."
+            )
 
         logger.info(
             "Initializing Mistral..."
@@ -54,9 +75,9 @@ class MistralProvider(BaseProvider):
         conversation: List[Dict],
     ) -> str:
 
-        response = self.client.chat.complete(
+        response = self.client.chat.complete_async(
 
-            model=settings.model,
+            model=self.model,
 
             messages=conversation,
 
@@ -66,10 +87,14 @@ class MistralProvider(BaseProvider):
             f"{self.name} replied to {user_id}"
         )
 
-        return (
-            response
-            .choices[0]
-            .message
-            .content
-            .strip()
+        return response.choices[0].message.content.strip()
+
+    async def use_tool(
+        self,
+        tool: str,
+        query: str,
+    ):
+
+        raise NotImplementedError(
+            f"{tool} is not implemented for Mistral."
         )
