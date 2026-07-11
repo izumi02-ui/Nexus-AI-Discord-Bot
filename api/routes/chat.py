@@ -1,31 +1,47 @@
 """
 Project Nexus
 
-Health Route
+Chat Route
 """
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 
-from ai.provider_manager import provider_manager
-from tools.manager import tool_manager
+from ai.engine import engine
 
 
 router = APIRouter()
 
 
-@router.get("/")
-async def health():
+class ChatRequest(BaseModel):
 
-    return {
+    user_id: int
 
-        "status": "online",
+    message: str
 
-        "project": "Project Nexus",
 
-        "provider": provider_manager.name,
+class ChatResponse(BaseModel):
 
-        "providers": provider_manager.available,
+    success: bool
 
-        "tools": tool_manager.available,
+    response: str
 
-    }
+
+@router.post("/", response_model=ChatResponse)
+async def chat(request: ChatRequest):
+
+    response = await engine.ask(
+
+        user_id=request.user_id,
+
+        message=request.message,
+
+    )
+
+    return ChatResponse(
+
+        success=True,
+
+        response=response,
+
+    )
