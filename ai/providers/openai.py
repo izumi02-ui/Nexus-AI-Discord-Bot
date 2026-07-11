@@ -4,9 +4,9 @@ Project Nexus
 OpenAI Provider
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from ai.provider_capabilities import ProviderCapabilities
 from ai.providers.base import BaseProvider
@@ -19,28 +19,51 @@ class OpenAIProvider(BaseProvider):
 
     @property
     def name(self) -> str:
-
         return "OpenAI"
+
+    @property
+    def model(self) -> str:
+        return settings.openai_model
 
     @property
     def capabilities(self):
 
         return ProviderCapabilities(
-            web_search=False,
+
             vision=True,
+
             files=True,
+
             function_calling=True,
+
             image_generation=True,
-            code_execution=False,
+
+            reasoning=True,
+
+            streaming=True,
+
+        )
+
+    @property
+    def available(self) -> bool:
+
+        return bool(
+            settings.openai_api_key
         )
 
     def __init__(self):
+
+        if not self.available:
+
+            raise RuntimeError(
+                "OpenAI API key missing."
+            )
 
         logger.info(
             "Initializing OpenAI..."
         )
 
-        self.client = OpenAI(
+        self.client = AsyncOpenAI(
             api_key=settings.openai_api_key
         )
 
@@ -54,9 +77,9 @@ class OpenAIProvider(BaseProvider):
         conversation: List[Dict],
     ) -> str:
 
-        response = self.client.chat.completions.create(
+        response = await self.client.chat.completions.create(
 
-            model=settings.model,
+            model=self.model,
 
             messages=conversation,
 
@@ -66,10 +89,14 @@ class OpenAIProvider(BaseProvider):
             f"{self.name} replied to {user_id}"
         )
 
-        return (
-            response
-            .choices[0]
-            .message
-            .content
-            .strip()
+        return response.choices[0].message.content.strip()
+
+    async def use_tool(
+        self,
+        tool: str,
+        query: str,
+    ):
+
+        raise NotImplementedError(
+            f"{tool} is not implemented for OpenAI."
         )
