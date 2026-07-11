@@ -4,9 +4,9 @@ Project Nexus
 OpenRouter Provider
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
-import requests
+from openai import AsyncOpenAI
 
 from ai.provider_capabilities import ProviderCapabilities
 from ai.providers.base import BaseProvider
@@ -19,28 +19,55 @@ class OpenRouterProvider(BaseProvider):
 
     @property
     def name(self) -> str:
-
         return "OpenRouter"
+
+    @property
+    def model(self) -> str:
+        return settings.openrouter_model
 
     @property
     def capabilities(self):
 
         return ProviderCapabilities(
-            web_search=False,
+
             vision=True,
+
             files=True,
+
             function_calling=True,
-            image_generation=False,
-            code_execution=False,
+
+            reasoning=True,
+
+            streaming=True,
+
+        )
+
+    @property
+    def available(self) -> bool:
+
+        return bool(
+            settings.openrouter_api_key
         )
 
     def __init__(self):
+
+        if not self.available:
+
+            raise RuntimeError(
+                "OpenRouter API key missing."
+            )
 
         logger.info(
             "Initializing OpenRouter..."
         )
 
-        self.url = "https://openrouter.ai/api/v1/chat/completions"
+        self.client = AsyncOpenAI(
+
+            api_key=settings.openrouter_api_key,
+
+            base_url="https://openrouter.ai/api/v1",
+
+        )
 
         logger.info(
             "OpenRouter Ready."
@@ -52,48 +79,26 @@ class OpenRouterProvider(BaseProvider):
         conversation: List[Dict],
     ) -> str:
 
-        messages = []
+        response = await self.client.chat.completions.create(
 
-        for message in conversation:
+            model=self.model,
 
-            messages.append({
-
-                "role": message["role"],
-
-                "content": message["content"],
-
-            })
-
-        response = requests.post(
-
-            self.url,
-
-            headers={
-
-                "Authorization": f"Bearer {settings.openrouter_api_key}",
-
-                "Content-Type": "application/json",
-
-            },
-
-            json={
-
-                "model": settings.model,
-
-                "messages": messages,
-
-            },
-
-            timeout=120,
+            messages=conversation,
 
         )
-
-        response.raise_for_status()
-
-        data = response.json()
 
         logger.info(
             f"{self.name} replied to {user_id}"
         )
 
-        return data["choices"][0]["message"]["content"]
+        return response.choices[0].message.content.strip()
+
+    async def use_tool(
+        self,
+        tool: str,
+        query: str,
+    ):
+
+        raise NotImplementedError(
+            f"{tool} is not implemented for OpenRouter."
+        )
