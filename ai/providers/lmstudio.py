@@ -4,9 +4,9 @@ Project Nexus
 LM Studio Provider
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
-import requests
+from openai import AsyncOpenAI
 
 from ai.provider_capabilities import ProviderCapabilities
 from ai.providers.base import BaseProvider
@@ -19,19 +19,32 @@ class LMStudioProvider(BaseProvider):
 
     @property
     def name(self) -> str:
-
         return "LM Studio"
+
+    @property
+    def model(self) -> str:
+        return settings.lmstudio_model
 
     @property
     def capabilities(self):
 
         return ProviderCapabilities(
-            web_search=False,
+
             vision=True,
+
             files=True,
-            function_calling=False,
-            image_generation=False,
-            code_execution=False,
+
+            reasoning=True,
+
+            streaming=True,
+
+        )
+
+    @property
+    def available(self) -> bool:
+
+        return bool(
+            settings.lmstudio_url
         )
 
     def __init__(self):
@@ -40,7 +53,13 @@ class LMStudioProvider(BaseProvider):
             "Initializing LM Studio..."
         )
 
-        self.url = f"{settings.lmstudio_url}/chat/completions"
+        self.client = AsyncOpenAI(
+
+            api_key="lmstudio",
+
+            base_url=settings.lmstudio_url,
+
+        )
 
         logger.info(
             "LM Studio Ready."
@@ -52,35 +71,26 @@ class LMStudioProvider(BaseProvider):
         conversation: List[Dict],
     ) -> str:
 
-        response = requests.post(
+        response = await self.client.chat.completions.create(
 
-            self.url,
+            model=self.model,
 
-            json={
-
-                "model": settings.model,
-
-                "messages": conversation,
-
-                "stream": False,
-
-            },
-
-            timeout=300,
+            messages=conversation,
 
         )
-
-        response.raise_for_status()
-
-        data = response.json()
 
         logger.info(
             f"{self.name} replied to {user_id}"
         )
 
-        return (
-            data["choices"][0]
-            ["message"]
-            ["content"]
-            .strip()
+        return response.choices[0].message.content.strip()
+
+    async def use_tool(
+        self,
+        tool: str,
+        query: str,
+    ):
+
+        raise NotImplementedError(
+            f"{tool} is not implemented for LM Studio."
         )
