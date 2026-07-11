@@ -30,40 +30,37 @@ class ProviderManager:
         self.provider = self._load_provider()
 
     # =====================================
+    # Register Providers
+    # =====================================
 
     def _register(self):
 
         self._add("gemini", GeminiProvider)
-
         self._add("openai", OpenAIProvider)
-
         self._add("openrouter", OpenRouterProvider)
-
         self._add("groq", GroqProvider)
-
         self._add("claude", ClaudeProvider)
-
         self._add("deepseek", DeepSeekProvider)
-
         # self._add("mistral", MistralProvider)
-
         self._add("cohere", CohereProvider)
-
         self._add("ollama", OllamaProvider)
-
         self._add("lmstudio", LMStudioProvider)
 
+    # =====================================
+    # Add Provider
     # =====================================
 
     def _add(
         self,
-        name,
+        name: str,
         cls,
     ):
 
         try:
 
-            self.providers[name] = cls()
+            provider = cls()
+
+            self.providers[name] = provider
 
             logger.info(
                 f"{name} loaded."
@@ -76,6 +73,8 @@ class ProviderManager:
             )
 
     # =====================================
+    # Load Default Provider
+    # =====================================
 
     def _load_provider(self):
 
@@ -83,31 +82,35 @@ class ProviderManager:
             settings.provider.lower()
         )
 
-        if provider is None:
+        if provider:
 
-            if not self.providers:
+            return provider
 
-                raise RuntimeError(
-                    "No AI providers available."
-                )
+        if not self.providers:
 
-            provider = next(
-                iter(self.providers.values())
+            raise RuntimeError(
+                "No AI providers available."
             )
 
-            logger.warning(
-                f"Default provider not available. Using {provider.name}"
-            )
+        provider = next(
+            iter(self.providers.values())
+        )
+
+        logger.warning(
+            f"Default provider unavailable. Using {provider.name}."
+        )
 
         return provider
 
     # =====================================
+    # Ask
+    # =====================================
 
     async def ask(
         self,
-        user_id,
-        conversation,
-    ):
+        user_id: int,
+        conversation: list,
+    ) -> str:
 
         providers = list(
             self.providers.values()
@@ -160,30 +163,49 @@ class ProviderManager:
         )
 
     # =====================================
+    # Change Provider
+    # =====================================
 
     def set_provider(
         self,
-        provider,
+        provider_name: str,
     ):
 
-        provider = provider.lower()
+        provider_name = provider_name.lower()
 
-        if provider not in self.providers:
-
-            raise ValueError(
-                provider
-            )
-
-        self.provider = self.providers[
-            provider
-        ]
-
-        settings.provider = provider
-
-        logger.info(
-            f"Provider changed to {provider}"
+        provider = self.providers.get(
+            provider_name
         )
 
+        if provider is None:
+
+            raise ValueError(
+                f"Unknown provider: {provider_name}"
+            )
+
+        self.provider = provider
+
+        settings.provider = provider_name
+
+        logger.info(
+            f"Provider changed to {provider_name}"
+        )
+
+    # =====================================
+    # Capability Check
+    # =====================================
+
+    def supports(
+        self,
+        capability: str,
+    ) -> bool:
+
+        return self.provider.supports(
+            capability
+        )
+
+    # =====================================
+    # Properties
     # =====================================
 
     @property
@@ -197,6 +219,16 @@ class ProviderManager:
     def name(self):
 
         return self.provider.name
+
+    @property
+    def model(self):
+
+        return self.provider.model
+
+    @property
+    def info(self):
+
+        return self.provider.info()
 
 
 provider_manager = ProviderManager()
