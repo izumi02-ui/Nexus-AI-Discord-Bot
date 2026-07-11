@@ -4,38 +4,48 @@ Project Nexus
 Google Search Tool
 """
 
-from typing import List
-
 from google import genai
 from google.genai import types
 
 from tools.base import BaseTool
-from tools.web_scraper import web_scraper
 
 from search.search_result import SearchResult
 
-from utils.settings import settings
 from utils.logger import logger
+from utils.settings import settings
 
 
 class GoogleSearchTool(BaseTool):
 
     @property
-    def name(self) -> str:
-
+    def name(self):
         return "google"
 
     @property
-    def priority(self) -> int:
+    def description(self):
+        return "Google Search"
 
+    @property
+    def priority(self):
         return 100
 
     @property
-    def description(self) -> str:
+    def requires_api(self):
+        return True
 
-        return "Google Search"
+    @property
+    def available(self):
+        return bool(
+            settings.gemini_api_key
+        )
 
     def __init__(self):
+
+        if not self.available:
+
+            raise RuntimeError(
+                "Gemini API key missing."
+            )
 
         self.client = genai.Client(
             api_key=settings.gemini_api_key
@@ -44,7 +54,7 @@ class GoogleSearchTool(BaseTool):
     async def execute(
         self,
         query: str,
-    ) -> List[SearchResult]:
+    ):
 
         try:
 
@@ -53,91 +63,50 @@ class GoogleSearchTool(BaseTool):
             )
 
             response = self.client.models.generate_content(
-                model=settings.model,
+
+                model=settings.gemini_model,
+
                 contents=query,
+
                 config=types.GenerateContentConfig(
+
                     tools=[
+
                         types.Tool(
+
                             google_search=types.GoogleSearch()
+
                         )
+
                     ]
-                )
+
+                ),
+
             )
 
-            text = response.text or ""
+            return {
 
-            results = [
+                "success": True,
 
-                SearchResult(
+                "content": response.text,
 
-                    title=query,
+                "results": [
 
-                    content=text,
+                    SearchResult(
 
-                    source="Google",
+                        title=query,
 
-                    confidence=1.00,
+                        content=response.text,
 
-                )
+                        source="Google",
 
-            ]
+                        confidence=1.0,
 
-            # =====================================
-            # Future:
-            # Read grounded webpages
-            # =====================================
-
-            try:
-
-                grounding = getattr(
-                    response,
-                    "grounding_metadata",
-                    None
-                )
-
-                if grounding:
-
-                    chunks = getattr(
-                        grounding,
-                        "grounding_chunks",
-                        []
                     )
 
-                    for chunk in chunks:
+                ],
 
-                        web = getattr(
-                            chunk,
-                            "web",
-                            None
-                        )
-
-                        if web is None:
-                            continue
-
-                        uri = getattr(
-                            web,
-                            "uri",
-                            None
-                        )
-
-                        if not uri:
-                            continue
-
-                        scraped = await web_scraper.execute(
-                            uri
-                        )
-
-                        results.extend(
-                            scraped
-                        )
-
-            except Exception as error:
-
-                logger.warning(
-                    f"Grounding scrape skipped: {error}"
-                )
-
-            return results
+            }
 
         except Exception as error:
 
@@ -145,25 +114,15 @@ class GoogleSearchTool(BaseTool):
                 "Google Search Failed"
             )
 
-            return [
+            return {
 
-                SearchResult(
+                "success": False,
 
-                    title="Google Search Failed",
+                "error": str(error),
 
-                    content=str(error),
+                "results": [],
 
-                    source="Google",
-
-                    confidence=0.0,
-
-                    success=False,
-
-                    error=str(error),
-
-                )
-
-            ]
+            }
 
 
 google_search = GoogleSearchTool()
