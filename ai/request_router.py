@@ -9,7 +9,7 @@ from utils.logger import logger
 
 class RequestRouter:
 
-    SIMPLE_GREETINGS = {
+    LOCAL = {
 
         "hi",
         "hello",
@@ -19,6 +19,48 @@ class RequestRouter:
         "good morning",
         "good afternoon",
         "good evening",
+        "thanks",
+        "thank you",
+
+    }
+
+    SEARCH_KEYWORDS = {
+
+        "latest",
+        "today",
+        "current",
+        "news",
+        "recent",
+        "price",
+        "buy",
+        "review",
+        "reviews",
+        "benchmark",
+        "vs",
+        "compare",
+        "comparison",
+        "release",
+        "released",
+        "launch",
+        "weather",
+        "forecast",
+        "temperature",
+        "github",
+        "repository",
+        "repo",
+        "youtube",
+        "video",
+        "reddit",
+        "wikipedia",
+        "wiki",
+        "documentation",
+        "docs",
+        "paper",
+        "research",
+        "arxiv",
+        "stackoverflow",
+        "error",
+        "exception",
 
     }
 
@@ -36,14 +78,13 @@ class RequestRouter:
         ],
 
         "maps": [
-            "where",
+            "map",
             "location",
-            "distance",
-            "directions",
+            "where",
             "route",
+            "directions",
             "near",
             "nearby",
-            "map",
         ],
 
         "currency": [
@@ -57,39 +98,30 @@ class RequestRouter:
             "jpy",
         ],
 
-        "time": [
-            "time",
-            "timezone",
-            "clock",
-        ],
-
-        "translator": [
-            "translate",
-            "translation",
-            "meaning",
-        ],
-
         "github": [
             "github",
             "repository",
             "repo",
-            "source code",
-            "open source",
         ],
 
-        "stackoverflow": [
-            "error",
-            "exception",
-            "traceback",
-            "bug",
+        "youtube": [
+            "youtube",
+            "video",
+            "tutorial",
         ],
 
-        "arxiv": [
-            "paper",
-            "research",
-            "journal",
-            "publication",
-            "arxiv",
+        "news": [
+            "news",
+            "latest",
+            "breaking",
+        ],
+
+        "spotify": [
+            "spotify",
+            "song",
+            "album",
+            "artist",
+            "playlist",
         ],
 
         "steam": [
@@ -98,32 +130,23 @@ class RequestRouter:
             "games",
         ],
 
-        "spotify": [
-            "spotify",
-            "song",
-            "music",
-            "album",
-            "artist",
-            "playlist",
+        "stackoverflow": [
+            "stackoverflow",
+            "error",
+            "exception",
+            "traceback",
         ],
 
-        "youtube": [
-            "youtube",
-            "video",
-            "watch",
-            "tutorial",
-        ],
-
-        "news": [
-            "news",
-            "latest",
-            "breaking",
-            "today",
-            "current",
-            "recent",
+        "arxiv": [
+            "paper",
+            "research",
+            "journal",
+            "publication",
         ],
 
     }
+
+    # =====================================
 
     def route(
         self,
@@ -132,70 +155,91 @@ class RequestRouter:
 
         text = message.lower().strip()
 
-        # =====================================
-        # Local Response
-        # =====================================
+        # ================================
+        # Local
+        # ================================
 
-        if text in self.SIMPLE_GREETINGS:
+        if text in self.LOCAL:
 
             return {
 
-                "type": "local",
+                "type": "local"
 
             }
 
-        # =====================================
-        # Tool Selection
-        # =====================================
+        # ================================
+        # Search
+        # ================================
 
-        selected = []
+        needs_search = any(
 
-        for tool, keywords in self.TOOL_RULES.items():
+            keyword in text
 
-            if any(
-
-                keyword in text
-
-                for keyword in keywords
-
-            ):
-
-                selected.append(tool)
-
-        # Always include these
-
-        selected.extend([
-
-            "google",
-            "wikipedia",
-
-        ])
-
-        # Remove duplicates
-
-        selected = list(
-
-            dict.fromkeys(selected)
+            for keyword in self.SEARCH_KEYWORDS
 
         )
+
+        if needs_search:
+
+            tools = []
+
+            for tool, keywords in self.TOOL_RULES.items():
+
+                if any(
+
+                    keyword in text
+
+                    for keyword in keywords
+
+                ):
+
+                    tools.append(tool)
+
+            tools.extend([
+
+                "google",
+
+                "wikipedia",
+
+            ])
+
+            tools = list(
+
+                dict.fromkeys(tools)
+
+            )
+
+            logger.info(
+
+                f"Search Route -> {tools}"
+
+            )
+
+            return {
+
+                "type": "search",
+
+                "tools": tools,
+
+            }
+
+        # ================================
+        # Default Chat
+        # ================================
 
         logger.info(
 
-            f"Selected tools: {selected}"
+            "Chat Route"
 
         )
 
-        # =====================================
-        # Search Route
-        # =====================================
-
         return {
 
-            "type": "search",
-
-            "tools": selected,
+            "type": "chat"
 
         }
+
+    # =====================================
 
     def local_response(self):
 
