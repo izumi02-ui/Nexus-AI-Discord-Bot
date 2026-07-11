@@ -5,7 +5,7 @@ Base AI Provider
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import Dict, List
 
 from ai.provider_capabilities import ProviderCapabilities
 
@@ -22,6 +22,15 @@ class BaseProvider(ABC):
     def capabilities(self) -> ProviderCapabilities:
         pass
 
+    @property
+    @abstractmethod
+    def model(self) -> str:
+        pass
+
+    @property
+    def available(self) -> bool:
+        return True
+
     @abstractmethod
     async def ask(
         self,
@@ -36,14 +45,6 @@ class BaseProvider(ABC):
         tool: str,
         query: str,
     ):
-        """
-        Execute a provider tool.
-
-        Example:
-            web_search
-            vision
-            image_generation
-        """
         pass
 
     def supports(
@@ -54,3 +55,17 @@ class BaseProvider(ABC):
         return self.capabilities.supports(
             capability
         )
+
+    def info(self) -> dict:
+
+        return {
+
+            "name": self.name,
+
+            "model": self.model,
+
+            "available": self.available,
+
+            "capabilities": self.capabilities.__dict__,
+
+        }
