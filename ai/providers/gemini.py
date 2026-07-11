@@ -4,7 +4,7 @@ Project Nexus
 Gemini Provider
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
 from google import genai
 
@@ -22,18 +22,42 @@ class GeminiProvider(BaseProvider):
         return "Gemini"
 
     @property
+    def model(self) -> str:
+        return settings.gemini_model
+
+    @property
     def capabilities(self):
 
         return ProviderCapabilities(
+
             web_search=True,
+
             vision=True,
+
             files=True,
+
             function_calling=True,
-            image_generation=False,
-            code_execution=False,
+
+            streaming=True,
+
+            reasoning=True,
+
+        )
+
+    @property
+    def available(self) -> bool:
+
+        return bool(
+            settings.gemini_api_key
         )
 
     def __init__(self):
+
+        if not self.available:
+
+            raise RuntimeError(
+                "Gemini API key missing."
+            )
 
         logger.info(
             "Initializing Gemini Provider..."
@@ -58,8 +82,11 @@ class GeminiProvider(BaseProvider):
         )
 
         response = self.client.models.generate_content(
-            model=settings.model,
-            contents=prompt
+
+            model=self.model,
+
+            contents=prompt,
+
         )
 
         logger.info(
@@ -73,22 +100,9 @@ class GeminiProvider(BaseProvider):
         tool: str,
         query: str,
     ):
-        """
-        Execute a Gemini tool.
 
-        NOTE:
-        Actual implementation will be added
-        in the next step.
-        """
-
-        if tool == "web_search":
-
-            raise NotImplementedError(
-                "Gemini Web Search is not implemented yet."
-            )
-
-        raise ValueError(
-            f"Unknown tool: {tool}"
+        raise NotImplementedError(
+            f"{tool} is not implemented for Gemini."
         )
 
     def _build_prompt(
@@ -96,12 +110,10 @@ class GeminiProvider(BaseProvider):
         conversation: List[Dict],
     ) -> str:
 
-        prompt = []
+        return "\n\n".join(
 
-        for message in conversation:
+            f"{message['role'].upper()}:\n{message['content']}"
 
-            prompt.append(
-                f"{message['role'].upper()}:\n{message['content']}"
-            )
+            for message in conversation
 
-        return "\n\n".join(prompt)
+        )
