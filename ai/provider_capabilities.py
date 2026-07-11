@@ -2,8 +2,6 @@
 Project Nexus
 
 Provider Capabilities
-
-Defines the capabilities of each AI provider.
 """
 
 
@@ -18,6 +16,11 @@ class ProviderCapabilities:
         image_generation=False,
         code_execution=False,
         function_calling=False,
+        streaming=False,
+        reasoning=False,
+        embeddings=False,
+        audio=False,
+        video=False,
     ):
 
         self.web_search = web_search
@@ -26,6 +29,11 @@ class ProviderCapabilities:
         self.image_generation = image_generation
         self.code_execution = code_execution
         self.function_calling = function_calling
+        self.streaming = streaming
+        self.reasoning = reasoning
+        self.embeddings = embeddings
+        self.audio = audio
+        self.video = video
 
     def supports(
         self,
@@ -35,5 +43,25 @@ class ProviderCapabilities:
         return getattr(
             self,
             capability,
-            False
+            False,
         )
+
+    def to_dict(
+        self,
+    ) -> dict:
+
+        return {
+
+            "web_search": self.web_search,
+            "vision": self.vision,
+            "files": self.files,
+            "image_generation": self.image_generation,
+            "code_execution": self.code_execution,
+            "function_calling": self.function_calling,
+            "streaming": self.streaming,
+            "reasoning": self.reasoning,
+            "embeddings": self.embeddings,
+            "audio": self.audio,
+            "video": self.video,
+
+        }
