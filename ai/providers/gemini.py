@@ -7,6 +7,7 @@ Gemini Provider
 from typing import Dict, List
 
 from google import genai
+from google.genai import types
 
 from ai.provider_capabilities import ProviderCapabilities
 from ai.providers.base import BaseProvider
@@ -87,11 +88,24 @@ class GeminiProvider(BaseProvider):
 
             contents=prompt,
 
+            config=types.GenerateContentConfig(
+
+                tools=[
+                    types.Tool(
+                        google_search=types.GoogleSearch()
+                    )
+                ]
+
+            ),
+
         )
 
         logger.info(
             f"{self.name} replied to {user_id}"
         )
+
+        if not response.text:
+            return "I couldn't generate a response."
 
         return response.text.strip()
 
@@ -100,6 +114,28 @@ class GeminiProvider(BaseProvider):
         tool: str,
         query: str,
     ):
+
+        if tool == "web_search":
+
+            response = self.client.models.generate_content(
+
+                model=self.model,
+
+                contents=query,
+
+                config=types.GenerateContentConfig(
+
+                    tools=[
+                        types.Tool(
+                            google_search=types.GoogleSearch()
+                        )
+                    ]
+
+                ),
+
+            )
+
+            return response.text
 
         raise NotImplementedError(
             f"{tool} is not implemented for Gemini."
