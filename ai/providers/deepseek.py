@@ -4,9 +4,9 @@ Project Nexus
 DeepSeek Provider
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 from ai.provider_capabilities import ProviderCapabilities
 from ai.providers.base import BaseProvider
@@ -19,32 +19,49 @@ class DeepSeekProvider(BaseProvider):
 
     @property
     def name(self) -> str:
-
         return "DeepSeek"
+
+    @property
+    def model(self) -> str:
+        return settings.deepseek_model
 
     @property
     def capabilities(self):
 
         return ProviderCapabilities(
-            web_search=False,
-            vision=False,
-            files=False,
+
             function_calling=True,
-            image_generation=False,
-            code_execution=False,
+
+            reasoning=True,
+
+            streaming=True,
+
+        )
+
+    @property
+    def available(self) -> bool:
+
+        return bool(
+            settings.deepseek_api_key
         )
 
     def __init__(self):
+
+        if not self.available:
+
+            raise RuntimeError(
+                "DeepSeek API key missing."
+            )
 
         logger.info(
             "Initializing DeepSeek..."
         )
 
-        self.client = OpenAI(
+        self.client = AsyncOpenAI(
 
             api_key=settings.deepseek_api_key,
 
-            base_url="https://api.deepseek.com"
+            base_url="https://api.deepseek.com",
 
         )
 
@@ -58,9 +75,9 @@ class DeepSeekProvider(BaseProvider):
         conversation: List[Dict],
     ) -> str:
 
-        response = self.client.chat.completions.create(
+        response = await self.client.chat.completions.create(
 
-            model=settings.model,
+            model=self.model,
 
             messages=conversation,
 
@@ -70,10 +87,14 @@ class DeepSeekProvider(BaseProvider):
             f"{self.name} replied to {user_id}"
         )
 
-        return (
-            response
-            .choices[0]
-            .message
-            .content
-            .strip()
+        return response.choices[0].message.content.strip()
+
+    async def use_tool(
+        self,
+        tool: str,
+        query: str,
+    ):
+
+        raise NotImplementedError(
+            f"{tool} is not implemented for DeepSeek."
         )
