@@ -10,7 +10,7 @@ from ai.providers.openrouter import OpenRouterProvider
 from ai.providers.groq import GroqProvider
 from ai.providers.claude import ClaudeProvider
 from ai.providers.deepseek import DeepSeekProvider
-from ai.providers.mistral import MistralProvider
+# from ai.providers.mistral import MistralProvider
 from ai.providers.cohere import CohereProvider
 from ai.providers.ollama import OllamaProvider
 from ai.providers.lmstudio import LMStudioProvider
@@ -45,7 +45,7 @@ class ProviderManager:
 
         self._add("deepseek", DeepSeekProvider)
 
-        self._add("mistral", MistralProvider)
+        # self._add("mistral", MistralProvider)
 
         self._add("cohere", CohereProvider)
 
@@ -141,9 +141,9 @@ class ProviderManager:
 
                 return await provider.ask(
 
-                    user_id,
+                    user_id=user_id,
 
-                    conversation,
+                    conversation=conversation,
 
                 )
 
