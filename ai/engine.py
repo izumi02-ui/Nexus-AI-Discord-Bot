@@ -20,9 +20,6 @@ from utils.response_formatter import response_formatter
 
 
 class AIEngine:
-    """
-    Main AI Engine.
-    """
 
     def __init__(self):
 
@@ -50,21 +47,25 @@ class AIEngine:
             message
         )
 
+        context = ""
+
         # =====================================
-        # Local Response
+        # Local
         # =====================================
 
         if route["type"] == "local":
 
             return response_formatter.format(
+
                 request_router.local_response()
+
             )
 
         # =====================================
         # Search
         # =====================================
 
-        if route["type"] == "search":
+        elif route["type"] == "search":
 
             try:
 
@@ -76,33 +77,41 @@ class AIEngine:
 
                 )
 
-                if results:
+                valid = [
+
+                    result
+
+                    for result in results
+
+                    if result.success
+
+                ]
+
+                if valid:
 
                     context = "\n\n".join(
 
-                        f"[{result.source}] {result.content}"
+                        f"[{r.source}] {r.content}"
 
-                        for result in results
-
-                        if result.success
+                        for r in valid
 
                     )
-
-                else:
-
-                    context = ""
 
             except Exception as error:
 
                 logger.warning(
+
                     f"Search failed: {error}"
+
                 )
 
-                context = ""
+        # =====================================
+        # Chat
+        # =====================================
 
-        else:
+        elif route["type"] == "chat":
 
-            context = ""
+            pass
 
         # =====================================
         # Build Conversation
@@ -122,16 +131,27 @@ class AIEngine:
 
         if context:
 
-            conversation.append({
+            conversation.insert(
 
-                "role": "system",
+                1,
 
-                "content": (
-                    "Use the following search results when answering.\n\n"
-                    + context
-                )
+                {
 
-            })
+                    "role": "system",
+
+                    "content": (
+
+                        "The following information comes from external search results.\n"
+
+                        "Use it if it is relevant and more up-to-date.\n\n"
+
+                        + context
+
+                    ),
+
+                },
+
+            )
 
         # =====================================
         # Ask Provider
@@ -174,7 +194,9 @@ class AIEngine:
         except Exception as error:
 
             logger.warning(
+
                 f"Memory save failed: {error}"
+
             )
 
         # =====================================
@@ -196,12 +218,10 @@ class AIEngine:
         except Exception as error:
 
             logger.warning(
-                f"Memory extraction failed: {error}"
-            )
 
-        # =====================================
-        # Format
-        # =====================================
+                f"Memory extraction failed: {error}"
+
+            )
 
         return response_formatter.format(
             response
