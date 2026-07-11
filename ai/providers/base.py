@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List
 
 from ai.provider_capabilities import ProviderCapabilities
+from ai.tool_registry import tool_registry
 
 
 class BaseProvider(ABC):
@@ -30,6 +31,11 @@ class BaseProvider(ABC):
     @property
     def available(self) -> bool:
         return True
+
+    @property
+    def tools(self):
+
+        return tool_registry.all()
 
     @abstractmethod
     async def ask(
@@ -56,7 +62,7 @@ class BaseProvider(ABC):
             capability
         )
 
-    def info(self) -> dict:
+    def info(self):
 
         return {
 
@@ -66,6 +72,8 @@ class BaseProvider(ABC):
 
             "available": self.available,
 
-            "capabilities": self.capabilities.__dict__,
+            "capabilities": self.capabilities.to_dict(),
+
+            "tools": self.tools,
 
         }
