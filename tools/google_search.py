@@ -7,8 +7,12 @@ Optional Google Search Tool
 import asyncio
 from typing import List
 
-from google import genai
-from google.genai import types
+try:
+    from google import genai
+    from google.genai import types
+except ImportError:  # pragma: no cover - optional dependency
+    genai = None
+    types = None
 
 from search.search_result import SearchResult
 from tools.base import BaseTool
@@ -17,6 +21,14 @@ from utils.settings import settings
 
 
 class GoogleSearchTool(BaseTool):
+
+    keywords = (
+        "search", "google", "latest", "current", "news", "today", "price",
+        "who", "what", "when",
+    )
+
+    ttl = 1800
+    required_keys = ("GEMINI_API_KEY",)
 
     @property
     def name(self) -> str:
@@ -36,12 +48,16 @@ class GoogleSearchTool(BaseTool):
 
     @property
     def available(self) -> bool:
-        return bool(settings.gemini_api_key)
+        return bool(genai and settings.gemini_api_key)
 
     def __init__(self):
         self.client = None
 
-        if self.available:
+        if genai is None:
+            logger.info(
+                "Google Search disabled: install google-genai to enable it."
+            )
+        elif self.available:
             self.client = genai.Client(
                 api_key=settings.gemini_api_key
             )
@@ -80,13 +96,20 @@ class GoogleSearchTool(BaseTool):
             if not content:
                 return []
 
+            from datetime import datetime, timezone
+
             return [
                 SearchResult(
                     title=query,
                     content=content,
                     source="Google",
-                    confidence=1.0,
-                )
+                    # Grounded but unpaginated: strong, not absolute - the
+                    # model still has to reconcile it with other sources.
+                    confidence=0.96,
+                    published=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    category="web",
+                    metadata={"grounded": True, "provider": "Gemini"},
+                ).stamp(tool=self.name)
             ]
 
         except Exception as error:
@@ -94,7 +117,7 @@ class GoogleSearchTool(BaseTool):
                 "Google Search failed: %s",
                 error,
             )
-            return []
+            raise
 
 
 google_search = GoogleSearchTool()

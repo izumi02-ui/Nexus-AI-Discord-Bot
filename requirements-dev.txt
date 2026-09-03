@@ -1,0 +1,2 @@
+# Development-only dependencies (the bot itself needs nothing beyond requirements.txt)
+pytest>=8.0

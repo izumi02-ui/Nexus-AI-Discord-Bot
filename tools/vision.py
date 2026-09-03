@@ -1,68 +1,38 @@
 """
 Project Nexus
 
-Vision Tool
+Vision Tool (not implemented)
+
+Image understanding is provided by the AI providers themselves (Gemini,
+OpenAI, OpenRouter vision models); a separate fake "vision" tool only ever
+invented captions, so it is explicitly unavailable until implemented.
 """
 
 from typing import List
 
 from tools.base import BaseTool
-from search.search_result import SearchResult
-
-from utils.logger import logger
 
 
 class VisionTool(BaseTool):
 
+    keywords = ("image", "picture", "photo", "what is in this")
+
+    implemented = False
+    searchable = False
+
     @property
     def name(self) -> str:
-
         return "vision"
 
     @property
-    def priority(self) -> int:
-
-        return 100
-
-    @property
     def description(self) -> str:
+        return "Image understanding (use a vision-capable provider for now)"
 
-        return "Image Understanding"
-
-    async def execute(
-        self,
-        query: str,
-    ) -> List[SearchResult]:
-
-        logger.info(
-            f"Vision Request: {query}"
+    async def execute(self, query: str) -> List:
+        raise NotImplementedError(
+            "Vision is handled by the provider's own capabilities "
+            "(provider.supports('vision')); this standalone tool is a stub."
         )
-
-        # TODO:
-        # Gemini Vision
-        # GPT Vision
-        # OCR Integration
-        # Object Detection
-        # Face Detection
-        # Landmark Detection
-        # Barcode / QR Detection
-        # Image Captioning
-
-        return [
-
-            SearchResult(
-
-                title="Vision",
-
-                content="Vision integration is under development.",
-
-                source="Vision",
-
-                confidence=1.0,
-
-            )
-
-        ]
 
 
 vision = VisionTool()

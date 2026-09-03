@@ -1,6 +1,6 @@
 # 🌌 Project Nexus - System Design
 
-**Version:** Nexus 2.0.0-alpha.1
+**Version:** Nexus 2.0.0-alpha.2
 
 ---
 
@@ -240,20 +240,64 @@ Everyone Else
 
 ---
 
+# Accuracy Layer
+
+The design above is the platform. What makes it trustworthy is a layer on top:
+
+User Message
+
+↓
+
+Request Router (freshness policy, tool selection)
+
+↓
+
+Knowledge Recall (verified claims Nexus already holds)
+
+↓
+
+Aggregator (parallel tools, cache, ranking, cross-check)
+
+↓
+
+Conversation Manager (persona → evidence → notes → facts → memory)
+
+↓
+
+Provider Manager (quality order, failure breaker, fallback)
+
+↓
+
+Verifier (links, numbers, excuses, grounding) → one repair pass
+
+↓
+
+Learn (memory, facts, verified knowledge + history)
+
+A component may only state a current fact when independent evidence supports
+it. Everything else is hedged, retried, or refused.
+
+Docs: [ARCHITECTURE.md](ARCHITECTURE.md) · [ACCURACY.md](ACCURACY.md) ·
+[ROADMAP.md](ROADMAP.md)
+
+---
+
 # Future Systems
 
-Planned Features
+Built: Multi-Provider AI, Web Search, Conversation Memory, Self-Updating
+Knowledge, Slash Commands, Permissions.
 
+Planned:
+
+- Vision / image understanding (attachments are routed today, not read)
 - Voice Chat
 - Image Generation
-- Web Search
 - Google Drive Backup
 - Supabase Database
 - Dashboard
 - Plugin System
 - Event System
 - Analytics
-- Multi-Provider AI
 
 ---
 

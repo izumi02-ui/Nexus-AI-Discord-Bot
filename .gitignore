@@ -6,3 +6,16 @@ __pycache__/
 data/
 .vscode/
 .idea/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local artefacts
+*.db-wal
+*.db-shm
+*.sqlite3
+.pytest_cache/
+htmlcov/
+coverage/

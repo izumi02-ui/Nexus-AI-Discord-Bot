@@ -6,6 +6,8 @@ Nexus API
 
 from fastapi import FastAPI
 
+from config import VERSION
+
 from api.routes.chat import router as chat_router
 from api.routes.search import router as search_router
 from api.routes.memory import router as memory_router
@@ -21,7 +23,7 @@ app = FastAPI(
 
     description="The core API powering Project Nexus.",
 
-    version="2.0.0-alpha.1",
+    version=VERSION,
 
 )
 
@@ -109,7 +111,7 @@ async def root():
 
         "name": "Nexus API",
 
-        "version": "2.0.0-alpha.1",
+        "version": VERSION,
 
         "status": "online",
 

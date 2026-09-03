@@ -58,11 +58,15 @@ async def execute_tool(request: ToolRequest):
 
         )
 
-    result = await tool.execute(
-
-        request.query,
-
-    )
+    try:
+        result = await tool.execute(
+            request.query,
+        )
+    except Exception as error:  # noqa: BLE001 - a failing API is data, not a 500
+        raise HTTPException(
+            status_code=502,
+            detail=f"{request.tool} failed: {str(error)[:200]}",
+        )
 
     return ToolResponse(
 
@@ -70,6 +74,9 @@ async def execute_tool(request: ToolRequest):
 
         tool=request.tool,
 
-        result=result,
+        result=[
+            item.to_dict() if hasattr(item, "to_dict") else item
+            for item in (result if isinstance(result, list) else [result])
+        ],
 
     )

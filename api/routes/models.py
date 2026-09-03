@@ -15,17 +15,10 @@ router = APIRouter()
 @router.get("/")
 async def models():
 
-    providers = []
-
-    for name in provider_manager.available:
-
-        provider = provider_manager.providers[name]
-
-        providers.append(
-
-            provider.info()
-
-        )
+    providers = [
+        provider.info()
+        for provider in provider_manager.providers.values()
+    ]
 
     return {
 

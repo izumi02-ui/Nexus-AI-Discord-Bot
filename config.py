@@ -16,7 +16,7 @@ load_dotenv()
 # ==========================================
 
 PROJECT_NAME = "Project Nexus"
-VERSION = "2.0.0-alpha.1"
+VERSION = "2.0.0-alpha.2"
 
 
 # ==========================================
@@ -139,7 +139,9 @@ LMSTUDIO_MODEL = os.getenv(
 
 
 # ==========================================
-# Media APIs
+# Search Evidence APIs
+# Every one of these is optional. Nexus still works without them - the
+# aggregator simply skips whatever is not configured.
 # ==========================================
 
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
@@ -156,6 +158,34 @@ REDDIT_CLIENT_ID = os.getenv("REDDIT_CLIENT_ID")
 REDDIT_CLIENT_SECRET = os.getenv("REDDIT_CLIENT_SECRET")
 REDDIT_USER_AGENT = os.getenv("REDDIT_USER_AGENT")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")
+
+#: Brave Search API - the single biggest accuracy upgrade available.
+BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
+
+#: Optional self-hosted translation server used before MyMemory.
+LIBRETRANSLATE_URL = os.getenv("LIBRETRANSLATE_URL")
+
+#: Extra RSS feeds merged into the news tool (comma separated "name|url").
+NEWS_FEEDS = os.getenv("NEWS_FEEDS", "")
+
+
+def _feed_list() -> dict:
+    feeds = {}
+
+    for entry in NEWS_FEEDS.split(","):
+        if "|" not in entry:
+            continue
+
+        name, _, url = entry.partition("|")
+
+        if name.strip() and url.strip().startswith("http"):
+            feeds[name.strip()] = url.strip()
+
+    return feeds
+
+
+NEWS_FEED_MAP = _feed_list()
 
 
 # ==========================================
@@ -178,6 +208,112 @@ MEMORY_LIMIT = int(
 
 
 # ==========================================
+# Accuracy Pipeline
+# ==========================================
+
+
+def _flag(name: str, default: str = "true") -> bool:
+    return os.getenv(name, default).lower() in {"1", "true", "yes", "on"}
+
+
+#: auto = decide per question, always = search every prompt, never = chat only.
+SEARCH_MODE = os.getenv("SEARCH_MODE", "auto").lower()
+
+#: Hard deadline for the whole evidence phase, so a dead API cannot stall a reply.
+SEARCH_TIMEOUT = float(
+    os.getenv("SEARCH_TIMEOUT", os.getenv("AI_REQUEST_TIMEOUT", "18"))
+)
+
+#: How many sources to collect, and how many independent ones are required
+#: before Nexus may state something as verified fact.
+MAX_SOURCES = int(os.getenv("MAX_SOURCES", "6"))
+MIN_SOURCES_FOR_GROUNDING = int(os.getenv("MIN_SOURCES_FOR_GROUNDING", "1"))
+
+#: Compare the finished answer against the evidence before sending it.
+VERIFICATION_ENABLED = _flag("VERIFICATION_ENABLED", "true")
+
+#: If a time-sensitive question was answered with no evidence, re-run it once
+#: with search results attached instead of shipping the guess.
+AUTO_RETRY_WITH_SEARCH = _flag("AUTO_RETRY_WITH_SEARCH", "true")
+
+#: auto | footer | inline | off - how sources are shown to the user.
+CITATION_MODE = os.getenv("CITATION_MODE", "auto").lower()
+
+#: For instant/short freshness questions, refuse to answer when nothing was
+#: verified, rather than guessing.
+REFUSE_WHEN_UNVERIFIED = _flag("REFUSE_WHEN_UNVERIFIED", "false")
+
+#: Let the default provider ground itself with OpenRouter's web plugin.
+#: Costs extra per request on paid models, so it is opt-in; Nexus' own search
+#: tools are used when this is off.
+OPENROUTER_WEB_SEARCH = _flag("OPENROUTER_WEB_SEARCH", "false")
+
+OPENROUTER_SEARCH_RESULTS = int(os.getenv("OPENROUTER_SEARCH_RESULTS", "5"))
+
+#: Cache TTLs shrink to the query's freshness budget when enabled.
+CACHE_FRESHNESS_AWARE = _flag("CACHE_FRESHNESS_AWARE", "true")
+
+#: Prompt budget for retrieved evidence.
+MAX_CONTEXT_SOURCES = int(os.getenv("MAX_CONTEXT_SOURCES", "5"))
+EVIDENCE_CHAR_BUDGET = int(os.getenv("EVIDENCE_CHAR_BUDGET", "9000"))
+
+
+# ==========================================
+# Memory
+# ==========================================
+
+#: Ask the model to extract durable facts when no rule matched. Costs one
+#: extra (small) provider call per message, so it is opt-in.
+MEMORY_LLM_EXTRACTION = _flag("MEMORY_LLM_EXTRACTION", "false")
+
+#: Re-verify remembered facts that have not been confirmed for this long.
+FACT_REVIEW_INTERVAL = int(os.getenv("FACT_REVIEW_INTERVAL", str(30 * 24 * 3600)))
+
+
+# ==========================================
+# Local File Access
+# ==========================================
+
+#: Directory Nexus is allowed to read text files from. Off unless enabled:
+#: an AI tool that can read any path is a data leak waiting for a prompt.
+FILE_READER_ROOT = os.getenv("FILE_READER_ROOT", "data/uploads")
+
+FILE_READER_ENABLED = _flag("FILE_READER_ENABLED", "false")
+
+
+# ==========================================
+# Self-Update
+# ==========================================
+
+#: Master switch for the background knowledge updater.
+SELF_UPDATE_ENABLED = _flag("SELF_UPDATE_ENABLED", "true")
+
+#: How often verified knowledge is re-checked and refreshed (seconds).
+SELF_UPDATE_INTERVAL = int(os.getenv("SELF_UPDATE_INTERVAL", str(6 * 3600)))
+
+#: Default lifetime of a knowledge entry before it must be re-verified.
+KNOWLEDGE_TTL = int(os.getenv("KNOWLEDGE_TTL", str(24 * 3600)))
+
+KNOWLEDGE_MAX_ENTRIES = int(os.getenv("KNOWLEDGE_MAX_ENTRIES", "2000"))
+
+#: Entries below this confidence are pruned instead of injected into a prompt.
+KNOWLEDGE_MIN_CONFIDENCE = float(os.getenv("KNOWLEDGE_MIN_CONFIDENCE", "0.35"))
+
+#: How often tools are probed and provider health is refreshed (seconds).
+TOOL_PROBE_INTERVAL = int(os.getenv("TOOL_PROBE_INTERVAL", str(30 * 60)))
+
+#: Re-read each provider's model list and repair the fallback chain when a
+#: configured model id disappears (OpenRouter, and any OpenAI-compatible API).
+MODEL_AUTO_REFRESH = _flag("MODEL_AUTO_REFRESH", "true")
+
+#: How many of the most-asked topics are kept warm by the updater.
+WATCHLIST_LIMIT = int(os.getenv("WATCHLIST_LIMIT", "12"))
+
+#: Refresh the pinned runtime facts (date, version, provider, tool health).
+RUNTIME_FACTS_INTERVAL = int(os.getenv("RUNTIME_FACTS_INTERVAL", "900"))
+
+
+# ==========================================
 # Logging
 # ==========================================
 
@@ -196,7 +332,12 @@ LOG_LEVEL = os.getenv(
 # Creator
 # ==========================================
 
-CREATOR_ID = 1169870987135823876
+#: Optional guild id. When set, slash commands are registered in that server
+#: only, which makes them appear instantly while developing; when empty they
+#: are registered globally and can take up to an hour to propagate.
+COMMAND_GUILD_ID = os.getenv("COMMAND_GUILD_ID", "")
+
+CREATOR_ID = int(os.getenv("CREATOR_ID", "1169870987135823876"))
 
 CREATOR_NAMES = [
     "Izumi",

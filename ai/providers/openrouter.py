@@ -32,6 +32,8 @@ class OpenRouterProvider(BaseProvider):
             function_calling=True,
             reasoning=True,
             streaming=True,
+            # OpenRouter's "web" plugin grounds any model in live search.
+            web_search=bool(getattr(settings, "openrouter_web_search", False)),
         )
 
     @property
@@ -73,19 +75,38 @@ class OpenRouterProvider(BaseProvider):
         self,
         user_id: int,
         conversation: List[Dict],
+        *,
+        grounded: bool | None = None,
     ) -> str:
         primary_model = self.models[0]
         fallback_models = self.models[1:]
+
+        extra_body = {}
+
+        if fallback_models:
+            extra_body["models"] = fallback_models
+
+        if grounded is None:
+            grounded = bool(getattr(settings, "openrouter_web_search", False))
+
+        if grounded:
+            # Server-side web grounding: OpenRouter runs the search and injects
+            # the results, which works even on free models that have no browse
+            # ability of their own.
+            extra_body["plugins"] = [
+                {
+                    "id": "web",
+                    "max_results": int(getattr(settings, "openrouter_search_results", 5)),
+                }
+            ]
 
         request_options = {
             "model": primary_model,
             "messages": conversation,
         }
 
-        if fallback_models:
-            request_options["extra_body"] = {
-                "models": fallback_models,
-            }
+        if extra_body:
+            request_options["extra_body"] = extra_body
 
         logger.info(
             "OpenRouter request for user %s. Chain: %s",
@@ -138,6 +159,67 @@ class OpenRouterProvider(BaseProvider):
         tool: str,
         query: str,
     ):
-        raise NotImplementedError(
-            f"{tool} is not implemented for OpenRouter."
+        """
+        Provider-side tools.
+
+        "web_search" is implemented through OpenRouter's web plugin, so a free
+        model behind OpenRouter can still answer current-events questions with
+        real citations instead of a shrug.
+        """
+        if tool != "web_search":
+            raise NotImplementedError(
+                f"{tool} is not implemented for OpenRouter."
+            )
+
+        response = await self.client.chat.completions.create(
+            model=self.models[0],
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a search assistant. Answer the query using "
+                        "live web results. Include the URLs you used, one per "
+                        "line, prefixed with 'SOURCE:'. Do not speculate."
+                    ),
+                },
+                {"role": "user", "content": query},
+            ],
+            extra_body={
+                "plugins": [
+                    {
+                        "id": "web",
+                        "max_results": int(
+                            getattr(settings, "openrouter_search_results", 5)
+                        ),
+                    }
+                ]
+            },
         )
+
+        if not response.choices:
+            raise RuntimeError("OpenRouter web search returned no choices.")
+
+        return (response.choices[0].message.content or "").strip()
+
+    # =====================================
+    # Model chain maintenance (self-healing)
+    # =====================================
+
+    def set_models(self, models: List[str]) -> List[str]:
+        """Replace the runtime model chain (used by the model catalog refresh)."""
+        cleaned = [model.strip() for model in models if model and model.strip()]
+
+        if not cleaned:
+            raise RuntimeError("Refusing to configure zero OpenRouter models.")
+
+        previous = list(self.models)
+
+        self.models = cleaned
+
+        logger.info(
+            "OpenRouter model chain updated: %s (was %s)",
+            " -> ".join(cleaned),
+            " -> ".join(previous),
+        )
+
+        return previous
