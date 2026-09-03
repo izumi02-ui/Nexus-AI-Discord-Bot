@@ -4,7 +4,11 @@ Project Nexus
 Discord Bot Entry Point
 """
 
+import asyncio
+import os
+
 import discord
+from aiohttp import web
 from discord.ext import commands
 
 from config import DISCORD_TOKEN
@@ -34,8 +38,46 @@ intents.guilds = True
 
 bot = commands.Bot(
     command_prefix="!",
-    intents=intents
+    intents=intents,
 )
+
+
+# ============================================
+# Render Health Server
+# ============================================
+
+async def health_check(request):
+    return web.json_response({
+        "status": "online",
+        "service": "Project Nexus",
+    })
+
+
+async def start_health_server():
+    app = web.Application()
+
+    app.router.add_get("/", health_check)
+    app.router.add_get("/health", health_check)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+
+    port = int(os.getenv("PORT", "10000"))
+
+    site = web.TCPSite(
+        runner,
+        "0.0.0.0",
+        port,
+    )
+
+    await site.start()
+
+    logger.info(
+        "Health server listening on port %s.",
+        port,
+    )
+
+    return runner
 
 
 # ============================================
@@ -44,7 +86,6 @@ bot = commands.Bot(
 
 @bot.event
 async def on_ready():
-
     setup_database()
 
     print("=" * 40)
@@ -55,7 +96,7 @@ async def on_ready():
     await bot.change_presence(
         activity=discord.Activity(
             type=discord.ActivityType.watching,
-            name="the Nexus"
+            name="the Nexus",
         )
     )
 
@@ -64,16 +105,13 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-
     # Ignore bots
     if message.author.bot:
         return
 
-    # Only respond when mentioned
+    # Respond when mentioned
     if bot.user in message.mentions:
-
         async with message.channel.typing():
-
             user_message = (
                 message.content
                 .replace(f"<@{bot.user.id}>", "")
@@ -82,27 +120,23 @@ async def on_message(message):
             )
 
             if not user_message:
-
                 await message.reply(
                     "Hi! 👋 What can I help you with?"
                 )
-
                 return
 
             try:
-
                 response = await engine.ask(
                     user_id=message.author.id,
-                    message=user_message
+                    message=user_message,
                 )
 
                 await send_long_message(
                     message.channel,
-                    response
+                    response,
                 )
 
             except Exception as error:
-
                 logger.exception(
                     "Failed to process mention"
                 )
@@ -115,31 +149,27 @@ async def on_message(message):
 
 
 # ============================================
-# Commands
+# AI Command
 # ============================================
 
 @bot.command(
     name="ai",
-    help="Talk with Nexus AI."
+    help="Talk with Nexus AI.",
 )
 async def ai(ctx, *, message):
-
     async with ctx.typing():
-
         try:
-
             response = await engine.ask(
                 user_id=ctx.author.id,
-                message=message
+                message=message,
             )
 
             await send_long_message(
                 ctx,
-                response
+                response,
             )
 
         except Exception as error:
-
             logger.exception(
                 "AI command failed"
             )
@@ -149,20 +179,21 @@ async def ai(ctx, *, message):
             )
 
 
+# ============================================
+# Memory Command
+# ============================================
+
 @bot.command(
     name="memory",
-    help="Show remembered facts."
+    help="Show remembered facts.",
 )
 async def memory(ctx):
-
     facts = get_facts(ctx.author.id)
 
     if not facts:
-
         await ctx.send(
             "🧠 I don't remember anything about you yet."
         )
-
         return
 
     text = "\n".join(
@@ -172,14 +203,27 @@ async def memory(ctx):
 
     await send_long_message(
         ctx,
-        f"## 🧠 Things I remember about you:\n{text}"
+        f"## 🧠 Things I remember about you:\n{text}",
     )
 
 
 # ============================================
-# Start Bot
+# Start Nexus
 # ============================================
 
-if __name__ == "__main__":
+async def main():
+    if not DISCORD_TOKEN:
+        raise RuntimeError(
+            "DISCORD_TOKEN is missing."
+        )
 
-    bot.run(DISCORD_TOKEN)
+    runner = await start_health_server()
+
+    try:
+        await bot.start(DISCORD_TOKEN)
+    finally:
+        await runner.cleanup()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
