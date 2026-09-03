@@ -187,12 +187,13 @@ class ChatCommands(commands.Cog):
         description="Show the sources behind Nexus' last answer to you.",
     )
     async def sources(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
         entry = engine.last_report(interaction.user.id)
 
         if not entry:
-            await interaction.response.send_message(
-                "I have not answered anything for you in this session yet.",
-                ephemeral=True,
+            await interaction.followup.send(
+                "I have not answered anything for you in this session yet."
             )
 
             return
@@ -201,7 +202,7 @@ class ChatCommands(commands.Cog):
         verification = entry.get("verification")
 
         if report is None or not getattr(report, "results", None):
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"⚠️ My last answer to you (`{entry['query'][:80]}`) was **not** built on "
                 "live sources.\n"
                 + (f"- {verification.summary}" if verification else "")
@@ -223,7 +224,7 @@ class ChatCommands(commands.Cog):
 
         lines.append(f"\n-# {report.status_line()}")
 
-        await send_long_message(interaction.response if hasattr(interaction.response, "send_message") else interaction, "\n".join(lines))
+        await send_long_message(interaction.followup, "\n".join(lines))
 
     # ==========================================
     # /verify

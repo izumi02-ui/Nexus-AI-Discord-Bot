@@ -24,14 +24,6 @@ def client():
     return AsyncClient(transport=transport, base_url="http://test")
 
 
-def get(client, path):
-    return asyncio.run(client.get(path))
-
-
-def post(client, path, payload):
-    return asyncio.run(client.post(path, json=payload))
-
-
 def test_health_reports_the_real_state(client):
     response = asyncio.run(client.get("/health/"))
 
@@ -80,7 +72,7 @@ def test_search_route_returns_grounded_metadata(client, monkeypatch):
     """Stub the aggregator so the route's shape is tested, not the network."""
     from search.report import SearchReport
     from search.search_result import SearchResult
-    from utils.time_utils import iso, now_utc
+    from utils.time_utils import iso, now_utc, now_utc
 
     stub = SearchReport(
         query="test query",
@@ -118,3 +110,132 @@ def test_search_route_returns_grounded_metadata(client, monkeypatch):
     assert body["grounded"] is True
     assert body["results"][0]["url"] == "https://example.com/stub"
     assert body["summary"]["sources"] == 1
+
+
+def test_chat_route_answers_smalltalk_without_a_provider(client):
+    """Greeting handling must not depend on a model being reachable."""
+    response = asyncio.run(
+        client.post("/chat/", json={"user_id": 991_001, "message": "thanks!"})
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["success"] is True
+    assert body["response"].strip()
+    assert body["route"]["type"] == "local"
+
+
+def test_chat_route_returns_grounding_metadata(client, monkeypatch):
+    from ai import provider_manager as pm
+
+    text = "The rate is 5.50 percent, held steady today."
+
+    async def fake_ask(self=None, **kwargs):
+        return text
+
+    async def fake_ask_with_info(self=None, **kwargs):
+        return {
+            "response": text,
+            "provider": "Stub",
+            "provider_key": "stub",
+            "model": "stub-1",
+            "seconds": 0.01,
+        }
+
+    monkeypatch.setattr(pm.provider_manager, "ask_with_info", fake_ask_with_info)
+    monkeypatch.setattr(pm.provider_manager, "ask", fake_ask)
+
+    from search.aggregator import aggregator
+    from search.search_result import SearchResult
+    from utils.time_utils import iso, now_utc
+
+    evidence = SearchResult(
+        title="Central bank holds",
+        content="The central bank held its rate at 5.50 percent today.",
+        source="Stub News",
+        url="https://example.com/rate",
+        confidence=0.9,
+        published_at=iso(now_utc()),
+    )
+
+    from search.report import SearchReport
+    from search.ranking import ranking
+
+    stub_report = SearchReport(
+        query="what is the interest rate",
+        results=[evidence],
+        cross=ranking.cross_check([evidence]),
+        tools_used=["brave"],
+        freshness="short",
+    )
+
+    async def fake_search(*args, **kwargs):
+        return stub_report
+
+    monkeypatch.setattr(aggregator, "search", fake_search)
+
+    response = asyncio.run(
+        client.post(
+            "/chat/",
+            json={
+                "user_id": 991_002,
+                "message": "what is the interest rate today",
+            },
+        )
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["route"]["type"] == "search"
+    assert body["grounded"] is True
+    assert body["sources"][0]["url"] == "https://example.com/rate"
+    assert "5.50 percent" in body["response"]
+
+
+def test_research_route_reports_its_verdict(client, monkeypatch):
+    from search.aggregator import aggregator
+    from search.report import SearchReport
+    from search.ranking import ranking
+    from search.search_result import SearchResult
+    from datetime import timedelta
+    from utils.time_utils import now_utc
+
+    rows = [
+        SearchResult(
+            title="Findings",
+            content="The study found a 12% improvement over the previous method.",
+            source="Journal",
+            url="https://example.com/study",
+            confidence=0.9,
+            published_at=(now_utc() - timedelta(hours=3)).isoformat(),
+        )
+    ]
+
+    report = SearchReport(
+        query="quantum computing",
+        results=rows,
+        cross=ranking.cross_check(rows),
+        tools_used=["arxiv"],
+        freshness="medium",
+    )
+
+    async def fake_search(*args, **kwargs):
+        return report
+
+    monkeypatch.setattr(aggregator, "search", fake_search)
+
+    response = asyncio.run(
+        client.post("/research/", json={"topic": "quantum computing", "depth": 1})
+    )
+
+    assert response.status_code == 200
+
+    body = response.json()
+
+    assert body["success"] is True
+    assert body["sources"]
+    assert body["verdict"]["confidence"] > 0

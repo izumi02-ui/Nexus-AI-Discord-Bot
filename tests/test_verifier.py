@@ -6,11 +6,8 @@ the bot had or would otherwise have: invented links, invented numbers, a model
 answering a live question from memory, and a model claiming it has no internet.
 """
 
-from datetime import timedelta
-
 from ai.verifier import verifier
 from search.report import SearchReport
-from utils.time_utils import now_utc
 
 
 def make_report(result, *extra):

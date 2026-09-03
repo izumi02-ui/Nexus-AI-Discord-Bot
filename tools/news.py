@@ -37,7 +37,8 @@ FEEDS = {
     "science": [
         ("Nature", "https://www.nature.com/nature.rss"),
         ("ScienceDaily", "https://www.sciencedaily.com/rss/top/science.xml"),
-        ("NASA", "https://www.nasa.gov/news/releasefeeds/"),
+        ("Space.com", "https://www.space.com/feeds/all"),
+        ("NASA", "https://www.nasa.gov/feed/"),
     ],
 }
 
@@ -157,11 +158,21 @@ class NewsTool(BaseTool):
             logger.debug("News feed %s unreachable: %s", label, error)
             return []
 
+        if not self._looks_like_feed(xml):
+            # A publisher page that is not actually a feed would otherwise be
+            # parsed into nav links and quoted as breaking news.
+            logger.warning("News feed %s is not RSS/Atom - skipped", label)
+
+            return []
+
         try:
             import feedparser
 
             parsed = feedparser.parse(xml)
             entries = list(parsed.entries or [])
+
+            if not entries and getattr(parsed, "bozo", 0):
+                logger.debug("Feed %s parsed empty (bozo): %s", label, parsed.get("exc"))
         except Exception:  # pragma: no cover - fallback parser
             entries = self._fallback_parse(xml)
 
@@ -205,6 +216,21 @@ class NewsTool(BaseTool):
         scored.sort(key=lambda item: item[0], reverse=True)
 
         return [item for _, item in scored[:4] if item[0] > 1.0 or not terms]
+
+    @staticmethod
+    def _looks_like_feed(payload: str) -> bool:
+        head = (payload or "")[:2000].lstrip().lower()
+
+        if not head:
+            return False
+
+        if head.startswith("<!doctype html>") or "<html" in head[:400]:
+            return False
+
+        return any(
+            marker in head
+            for marker in ("<rss", "<feed", "<rdf:rss", "<?xml")
+        )
 
     def _fallback_parse(self, xml: str) -> list:
         """Minimal RSS/Atom item extractor for when feedparser is missing."""

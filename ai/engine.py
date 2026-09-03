@@ -141,7 +141,9 @@ class AIEngine:
                 "response": response_formatter.format(
                     reply, user_id=None if not include_footer else user_id
                 ),
+                "raw": reply,
                 "type": "local",
+                "route": route,
                 "report": None,
                 "verification": None,
                 "elapsed": time.monotonic() - started,
