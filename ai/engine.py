@@ -1,230 +1,144 @@
 """
 Project Nexus
 
-AI Engine
-
-The central AI orchestration layer.
+Central AI orchestration layer.
 """
 
 from ai.conversation_manager import conversation_manager
-from ai.provider_manager import provider_manager
 from ai.memory_extractor import memory_extractor
+from ai.provider_manager import provider_manager
 from ai.request_router import request_router
 
-from search.aggregator import aggregator
-
 from database.memory import add_message
-
+from search.aggregator import aggregator
 from utils.logger import logger
 from utils.response_formatter import response_formatter
 
 
 class AIEngine:
-
     def __init__(self):
-
         self.provider = provider_manager
-
-        logger.info(
-            "AI Engine initialized."
-        )
+        logger.info("AI Engine initialized.")
 
     async def ask(
         self,
         user_id: int,
         message: str,
     ) -> str:
-
         logger.info(
-            f"Processing request from {user_id}"
+            "Processing request from %s",
+            user_id,
         )
 
-        # =====================================
-        # Route Request
-        # =====================================
+        route = request_router.route(message)
 
-        route = request_router.route(
-            message
-        )
+        if route["type"] == "local":
+            return response_formatter.format(
+                request_router.local_response(),
+                user_id=user_id,
+            )
 
         context = ""
 
-        # =====================================
-        # Local
-        # =====================================
-
-        if route["type"] == "local":
-
-            return response_formatter.format(
-
-                request_router.local_response()
-
-            )
-
-        # =====================================
-        # Search
-        # =====================================
-
-        elif route["type"] == "search":
-
+        if route["type"] == "search":
             try:
-
                 results = await aggregator.search(
-
                     query=message,
-
                     tools=route["tools"],
-
                 )
 
                 valid = [
-
                     result
-
                     for result in results
-
-                    if result.success
-
+                    if getattr(result, "success", False)
+                    and getattr(result, "content", "")
+                    and "under development"
+                    not in result.content.lower()
                 ]
 
-                if valid:
+                context_parts = []
 
-                    context = "\n\n".join(
-
-                        f"[{r.source}] {r.content}"
-
-                        for r in valid
-
+                for result in valid:
+                    part = (
+                        f"[{result.source}] "
+                        f"{result.title}\n"
+                        f"{result.content}"
                     )
 
-            except Exception as error:
+                    if result.url:
+                        part += f"\nURL: {result.url}"
 
-                logger.warning(
+                    context_parts.append(part)
 
-                    f"Search failed: {error}"
-
+                context = "\n\n".join(
+                    context_parts
                 )
 
-        # =====================================
-        # Chat
-        # =====================================
-
-        elif route["type"] == "chat":
-
-            pass
-
-        # =====================================
-        # Build Conversation
-        # =====================================
+            except Exception as error:
+                logger.warning(
+                    "Search failed: %s",
+                    error,
+                )
 
         conversation = await conversation_manager.build(
-
             user_id=user_id,
-
             message=message,
-
         )
-
-        # =====================================
-        # Inject Search Context
-        # =====================================
 
         if context:
-
             conversation.insert(
-
                 1,
-
                 {
-
                     "role": "system",
-
                     "content": (
-
-                        "The following information comes from external search results.\n"
-
-                        "Use it if it is relevant and more up-to-date.\n\n"
-
+                        "Verified external search context follows. "
+                        "Use it when relevant, do not invent details "
+                        "beyond it, and cite provided URLs when useful.\n\n"
                         + context
-
                     ),
-
                 },
-
             )
-
-        # =====================================
-        # Ask Provider
-        # =====================================
 
         response = await self.provider.ask(
-
             user_id=user_id,
-
             conversation=conversation,
-
         )
 
-        # =====================================
-        # Save Conversation
-        # =====================================
-
         try:
-
             add_message(
-
                 user_id=user_id,
-
                 role="user",
-
                 content=message,
-
             )
 
             add_message(
-
                 user_id=user_id,
-
                 role="assistant",
-
                 content=response,
-
             )
 
         except Exception as error:
-
             logger.warning(
-
-                f"Memory save failed: {error}"
-
+                "Memory save failed: %s",
+                error,
             )
-
-        # =====================================
-        # Learn Facts
-        # =====================================
 
         try:
-
             memory_extractor.extract(
-
                 user_id=user_id,
-
                 message=message,
-
                 response=response,
-
             )
 
         except Exception as error:
-
             logger.warning(
-
-                f"Memory extraction failed: {error}"
-
+                               "Memory extraction failed: %s",
+                error,
             )
 
         return response_formatter.format(
-            response
+            response,
+            user_id=user_id,
         )
 
 
