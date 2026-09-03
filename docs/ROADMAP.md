@@ -21,6 +21,9 @@ not by how interesting it is.
 
 ## Next
 
+Detailed version of this list, with dependencies and guardrails per item, lives in
+the README's [Planned features](../README.md#planned-features) section.
+
 - [ ] **Image understanding.** The router detects attachments and the engine
       passes them through with an explicit "you cannot see this" guard, but no
       provider currently receives the image. Wire `ai/providers/*` vision calls
@@ -37,6 +40,21 @@ not by how interesting it is.
       rather than eyeballed. This is the only way accuracy work stays honest.
 - [ ] **`/nexus history`** — surface `knowledge_history` so a user can watch the
       bot correct itself. It already records every change; nobody can read it yet.
+- [ ] **OCR fallback** — `tools/ocr.py` is a placeholder by design; make it real
+      with `pytesseract` (already in requirements) while keeping it optional and
+      reporting "unavailable" when the Tesseract binary is missing.
+- [ ] **PDF reading and preview** — `tools/pdf_reader.py`, per-page extraction so
+      citations carry page numbers, plus optional rendered previews. First new
+      dependency of this project (`pypdf`); text treated as quoted-untrusted.
+- [ ] **File understanding beyond plain text** — widen `tools/file_reader.py`
+      (CSV/tables, code structure, chunked map-reduce for long documents) while
+      keeping the root confinement and per-user isolation.
+- [ ] **Image generation** — `capabilities.image_generation` already exists for
+      this; add `tools/image_gen.py` + `/generate`, provenance visible, no
+      real-person likenesses, separate rate limit.
+- [ ] **GIF and short animation** — `tools/media_render.py`: frames → GIF with
+      Pillow (already a dependency); video → GIF only where `ffmpeg` exists, and
+      only from user-supplied or licensed media.
 
 ## Later
 
