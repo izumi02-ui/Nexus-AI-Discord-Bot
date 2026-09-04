@@ -4,6 +4,8 @@ Project Nexus
 Gemini Provider
 """
 
+import asyncio
+
 from typing import Dict, List
 
 from google import genai
@@ -82,22 +84,10 @@ class GeminiProvider(BaseProvider):
             conversation
         )
 
-        response = self.client.models.generate_content(
-
+        response = await asyncio.to_thread(
+            self.client.models.generate_content,
             model=self.model,
-
             contents=prompt,
-
-            config=types.GenerateContentConfig(
-
-                tools=[
-                    types.Tool(
-                        google_search=types.GoogleSearch()
-                    )
-                ]
-
-            ),
-
         )
 
         logger.info(
@@ -117,22 +107,13 @@ class GeminiProvider(BaseProvider):
 
         if tool == "web_search":
 
-            response = self.client.models.generate_content(
-
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
                 model=self.model,
-
                 contents=query,
-
                 config=types.GenerateContentConfig(
-
-                    tools=[
-                        types.Tool(
-                            google_search=types.GoogleSearch()
-                        )
-                    ]
-
+                    tools=[types.Tool(google_search=types.GoogleSearch())]
                 ),
-
             )
 
             return response.text
