@@ -10,6 +10,7 @@ retries transient failures and caps how much HTML is pulled into memory.
 """
 
 import asyncio
+import time
 
 from utils.logger import logger
 
@@ -94,8 +95,6 @@ async def fetch(
                 last_error = error
 
                 if attempt < retries:
-                    import time
-
                     time.sleep(0.4 * (attempt + 1))
                     continue
 
