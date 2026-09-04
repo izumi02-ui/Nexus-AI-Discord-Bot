@@ -82,6 +82,14 @@ CODE_FRESH_RE = re.compile(
     re.IGNORECASE,
 )
 
+CODE_GENERATION_RE = re.compile(
+    r"\b(?:write|create|generate|build|make|give|provide|need|want)\b"
+    r"[^?\n]{0,80}\b(?:code|script|function|class|program|bot|api|html|css|"
+    r"javascript|python|java|c\+\+|replacement|source file)\b|"
+    r"\b(?:full|complete)\s+(?:file|replacement|code)\b",
+    re.IGNORECASE,
+)
+
 SOLUTION_TOPIC_RE = re.compile(
     r"\b(?:solve|calculate|compute|evaluate|simplify|differentiate|derivative|"
     r"integrate|integral|calculus|equation|limit\s+of)\b",
@@ -182,11 +190,33 @@ class RequestRouter:
             ("/search", "/ask", "/verify")
         )
         code_topic = bool(CODE_TOPIC_RE.search(text))
+        code_generation = bool(CODE_GENERATION_RE.search(text))
+
+        # ================================
+        # Explicit service lookups
+        # ================================
+        # These requests are useful even when their subject is not "current".
+        # "find Love Me song" must reach Spotify/YouTube, while a traceback
+        # must reach Stack Overflow instead of asking a small model to invent
+        # a tool call in plain text.
+        direct_tools = self._direct_lookup_tools(text)
+
+        if direct_tools and not code_generation:
+            decision.update(
+                type="search",
+                tools=direct_tools,
+                reason="explicit lookup handled by " + ", ".join(direct_tools),
+                force=True,
+                grounded=True,
+                cacheable=freshness != "instant",
+            )
+
+            return decision
 
         # Words such as "now" often mean "do this next", not "look up live
         # information". Ordinary code generation must go straight to the model;
         # search is reserved for explicit search requests or current API/docs.
-        if code_topic and not forced and not CODE_FRESH_RE.search(text):
+        if code_generation and not forced and not CODE_FRESH_RE.search(text):
             decision.update(
                 type="chat",
                 tools=[],
@@ -313,6 +343,83 @@ class RequestRouter:
             return name, cap
 
         return None
+
+    DIRECT_LOOKUPS = (
+        (
+            re.compile(r"\b(?:youtube|yt|music video|trailer)\b", re.IGNORECASE),
+            ("youtube",),
+        ),
+        (
+            re.compile(r"\bspotify\b", re.IGNORECASE),
+            ("spotify",),
+        ),
+        (
+            re.compile(
+                r"\b(?:find|search|look\s*up|show|play|watch)\b[^?\n]{0,100}"
+                r"\b(?:song|track|album|artist|playlist|video)\b|"
+                r"\b(?:song|track|album|playlist)\b[^?\n]{0,100}"
+                r"\b(?:find|search|show|play|watch)\b",
+                re.IGNORECASE,
+            ),
+            ("spotify", "youtube"),
+        ),
+        (
+            re.compile(r"\b(?:reddit|subreddit|r/[a-z0-9_]+)\b", re.IGNORECASE),
+            ("reddit",),
+        ),
+        (
+            re.compile(r"\b(?:github|github\.com|repository|repo)\b", re.IGNORECASE),
+            ("github",),
+        ),
+        (
+            re.compile(r"\b(?:steam store|on steam|steam price)\b", re.IGNORECASE),
+            ("steam",),
+        ),
+        (
+            re.compile(r"\b(?:arxiv|preprint|research paper)\b", re.IGNORECASE),
+            ("arxiv",),
+        ),
+        (
+            re.compile(
+                r"\b(?:stackoverflow|stack overflow|traceback|exception|"
+                r"segfault|compiler error|runtime error)\b",
+                re.IGNORECASE,
+            ),
+            ("stackoverflow",),
+        ),
+    )
+
+    def _direct_lookup_tools(self, text: str) -> list[str]:
+        """Return configured tools explicitly requested by the message."""
+        # An explicitly named service wins over the generic media rule.  A
+        # request for a YouTube link should not also spend Spotify quota (and
+        # vice versa) merely because it contains the word "song".
+        for pattern, candidates in self.DIRECT_LOOKUPS[:2]:
+            if not pattern.search(text or ""):
+                continue
+
+            available = [
+                name
+                for name in candidates
+                if (tool := tool_manager.get(name)) is not None and tool.usable
+            ]
+
+            if available:
+                return self._order(available, {})[:3]
+
+        names = []
+
+        for pattern, candidates in self.DIRECT_LOOKUPS[2:]:
+            if not pattern.search(text or ""):
+                continue
+
+            for name in candidates:
+                tool = tool_manager.get(name)
+
+                if tool is not None and tool.usable and name not in names:
+                    names.append(name)
+
+        return self._order(names, {})[:3]
 
     # =====================================
     # Tool selection
