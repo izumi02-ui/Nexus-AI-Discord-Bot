@@ -1,320 +1,266 @@
-# 🌌 Project Nexus - System Design
+# 🌌 Project Nexus — System Design
 
-**Version:** Nexus 1.3.0-alpha.V3
-
----
-
-# Overview
-
-Project Nexus is a modular AI platform designed primarily for Discord.
-
-The system is built around the idea that every component should have one responsibility.
-
-Every feature should be replaceable without rewriting the entire application.
+**Version:** Nexus 2.0.0-alpha.2
+**Status:** implementation reference for the `Nexus-V3` branch
 
 ---
 
-# Core Principles
+## Purpose
 
-## 1. Single Responsibility
+Project Nexus is a modular Discord AI assistant. A language model is only one
+replaceable part: Nexus decides when evidence is needed, retrieves it, verifies
+the draft, stores only supported knowledge, and presents the result for Discord.
 
-Every module has one purpose.
-
-Examples:
-
-- AI Engine → AI orchestration
-- Provider Manager → AI provider selection
-- Conversation Manager → Conversation building
-- Database → Data storage
-- Commands → Discord commands
-- Logger → Logging
+The system keeps working when an optional provider, API key, or evidence tool
+is unavailable. Missing capabilities are reported, not replaced with invented
+output.
 
 ---
 
-## 2. Modular Design
+## End-to-end request flow
 
-Every system should be replaceable.
+```text
+Discord DM / mention / reply / command
+                    │
+                    ▼
+                bot.py
+                    │
+                    ▼
+          ai/request_router.py
+          ┌─────────┼─────────┐
+          ▼         ▼         ▼
+       local       chat      search
+                               │
+                               ▼
+                    search/aggregator.py
+                    cache · ranking · cross-check
+                               │
+                               ▼
+                 ai/conversation_manager.py
+                 persona · evidence · memory
+                               │
+                               ▼
+                   ai/provider_manager.py
+                   provider/model failover
+                               │
+                               ▼
+                       ai/verifier.py
+                  links · figures · grounding
+                               │
+                               ▼
+                  utils/rich_response.py
+                plain · reference · solution · code
+                               │
+                               ▼
+                         Discord output
+```
 
-Example:
-
-Gemini
-
-↓
-
-Groq
-
-↓
-
-OpenRouter
-
-↓
-
-OpenAI
-
-without changing the Discord bot.
-
----
-
-## 3. Separation of Concerns
-
-Discord never talks directly to AI providers.
-
-Discord
-
-↓
-
-AI Engine
-
-↓
-
-Conversation Manager
-
-↓
-
-Provider Manager
-
-↓
-
-AI Provider
+`ai/engine.py` owns orchestration. Discord commands and the HTTP API both call
+the same engine, so they cannot develop different accuracy rules.
 
 ---
 
-## 4. Configuration First
+## Discord ingress
 
-Nothing should be hardcoded.
+`bot.py` is wiring, not AI policy.
 
-Everything configurable belongs inside:
-
-config.py
-
-or
-
-Settings Manager.
-
----
-
-# System Architecture
-
-Discord
-
-↓
-
-Bot
-
-↓
-
-AI Engine
-
-↓
-
-Conversation Manager
-
-↓
-
-Provider Manager
-
-↓
-
-Gemini / Groq / OpenRouter
+- A direct message is a one-to-one conversation; no mention is required,
+  although a tagged DM still works.
+- In a server, Nexus answers when mentioned or when a user directly replies to
+  one of Nexus' messages.
+- Slash commands and valid prefix commands are handled exactly once.
+- Up to three attachment URLs are forwarded as context. Unsupported image
+  understanding is disclosed rather than simulated.
+- Nexus starts idle with the activity `/ask  •  mention me`.
+- `/` and `/health` expose deploy state for Render. Discord latency is `null`
+  during startup if the client has not produced a finite value yet.
 
 ---
 
-# Memory Flow
+## Request routing
 
-User Message
+`ai/request_router.py` classifies every request before a provider is called.
 
-↓
+| Route | Used for | Behaviour |
+|---|---|---|
+| `local` | acknowledgements and empty input | no provider or search cost |
+| `chat` | greetings, stable knowledge, ordinary code generation | answer from the configured model |
+| `search` | current claims, explicit lookup, substantial reference topics, exact tools | retrieve evidence before generation |
 
-Conversation Manager
+Freshness classes (`instant`, `short`, `medium`, `long`, `static`) determine
+cache and verification limits. Exact tools handle arithmetic, weather,
+currency, time, maps and translation where specialised data is safer than model
+recall.
 
-↓
+Code generation is protected from keyword collisions. “Now write a weather
+bot” is static code work, not a current-weather lookup. Code searches only when
+the user explicitly asks to search or requests current APIs, versions, releases
+or documentation.
 
-Load System Prompt
-
-↓
-
-Load User Profile
-
-↓
-
-Load Memories
-
-↓
-
-Load Facts
-
-↓
-
-Build Conversation
-
-↓
-
-Provider
-
-↓
-
-AI Response
-
-↓
-
-Save Memory
+The route also carries a presentation hint: `plain` for normal conversation,
+`reference` for substantial explanations, and `solution` for worked maths and
+similar tasks. Code is confirmed later from fenced or recognisably executable
+output.
 
 ---
 
-# AI Providers
+## Evidence and verification
 
-Every provider must inherit from:
+`search/aggregator.py` runs selected tools concurrently under one deadline. It
+removes empty or placeholder results, applies authority, relevance and recency
+scores, deduplicates syndicated copies, and checks independent-domain agreement.
 
-BaseProvider
+`ai/verifier.py` compares the generated draft with that evidence:
 
-Required function:
+1. URLs that no tool returned are removed.
+2. Unsupported numbers reduce confidence and may trigger one repair pass.
+3. False “I cannot browse” claims are removed when Nexus retrieved evidence.
+4. Current questions without adequate support are retried once, then hedged or
+   refused according to configuration.
+5. Residual uncertainty is shown to the user.
 
-ask(
-    user_id,
-    conversation
-)
+Only grounded public claims enter the knowledge store. Corrections retain
+history; unresolved contradictions become `disputed` rather than averaged.
 
-Providers:
-
-- Gemini
-- Groq
-- OpenRouter
-- OpenAI
-
----
-
-# User Profiles
-
-Every Discord user owns one profile.
-
-A profile contains:
-
-- User ID
-- Username
-- Display Name
-- Role
-- Nicknames
-- Facts
-- Preferences
-- Statistics
-- Created Date
-- Last Seen
+See [ACCURACY.md](ACCURACY.md) for policy and environment controls.
 
 ---
 
-# Roles
+## Provider system
 
-Creator
+Every provider implements `ai/providers/base.py`. The provider manager selects
+an available adapter, applies capability requirements, and uses a failure
+breaker so an unhealthy provider cools down while the next option is attempted.
 
-↓
+Supported adapters: OpenRouter, OpenAI, Gemini, Claude, Groq, DeepSeek,
+Mistral, Cohere, Ollama and LM Studio.
 
-Izumi
+OpenRouter may use a comma-separated model chain. Models run left to right;
+`openrouter/free` can be the final router-managed fallback. The model catalog
+may repair a retired ID for the current process, but Nexus never rewrites
+`config.py` or `.env`.
 
-(Rohit / IZ)
-
----
-
-Special User
-
-↓
-
-Ash
-
-(Ashey)
+All provider, model and tool settings are documented in
+[`../.env.example`](../.env.example).
 
 ---
 
-Admin
+## Prompt and conversation assembly
 
-↓
+`ai/conversation_manager.py` loads prompt blocks in priority order:
 
-Server Staff
+1. `prompts/base.txt` — Project Nexus identity and response contract;
+2. `prompts/personality.txt` — conversational style;
+3. `prompts/creator.txt` — stable project identity facts;
+4. `prompts/accuracy.txt` — evidence and uncertainty rules;
+5. live runtime facts — clock, version, provider, model and tool inventory;
+6. retrieved evidence and verified knowledge;
+7. relevant user facts and recent conversation.
 
----
+Lower-priority blocks are removed whole when the context budget is exceeded.
+The system does not cut a policy block or evidence item in half.
 
-User
-
-↓
-
-Everyone Else
-
----
-
-# Accuracy Layer
-
-The design above is the platform. What makes it trustworthy is a layer on top:
-
-User Message
-
-↓
-
-Request Router (freshness policy, tool selection)
-
-↓
-
-Knowledge Recall (verified claims Nexus already holds)
-
-↓
-
-Aggregator (parallel tools, cache, ranking, cross-check)
-
-↓
-
-Conversation Manager (persona → evidence → notes → facts → memory)
-
-↓
-
-Provider Manager (quality order, failure breaker, fallback)
-
-↓
-
-Verifier (links, numbers, excuses, grounding) → one repair pass
-
-↓
-
-Learn (memory, facts, verified knowledge + history)
-
-A component may only state a current fact when independent evidence supports
-it. Everything else is hedged, retried, or refused.
-
-Docs: [ARCHITECTURE.md](ARCHITECTURE.md) · [ACCURACY.md](ACCURACY.md) ·
-[ROADMAP.md](ROADMAP.md)
+The response contract requires professional, readable answers: lead with the
+answer, explain important connections, include examples and meaningful limits
+for complex topics, and avoid decorative headings such as `Response`.
+Replacement-file requests return complete files, and code uses fenced blocks
+with the correct language.
 
 ---
 
-# Future Systems
+## Discord presentation
 
-Built: Multi-Provider AI, Web Search, Conversation Memory, Self-Updating
-Knowledge, Slash Commands, Permissions.
+`utils/rich_response.py` formats a verified outcome without changing its facts.
 
-Planned:
+| Kind | Output |
+|---|---|
+| Plain | normal Discord text |
+| Reference | plain introduction → focused embed → plain conclusion |
+| Solution | plain setup → worked-solution embed → plain explanation |
+| Code | plain introduction → syntax-labelled code embeds → plain conclusion |
 
-- Vision / image understanding (attachments are routed today, not read)
-- Voice Chat
-- Image Generation
-- Google Drive Backup
-- Supabase Database
-- Dashboard
-- Plugin System
-- Event System
-- Analytics
+The requester line is compact normal Discord text, not an embed. Long code is
+previewed and attached as a complete replacement file. A refusal is never
+labelled as generated code merely because the question asked for code.
 
----
-
-# Development Philosophy
-
-Build once.
-
-Extend forever.
-
-Never rewrite because of poor architecture.
-
-Only expand.
+Reference images are optional. Nexus uses only an HTTPS image or thumbnail
+returned by retrieval; it does not trust a URL invented in model text. Normal
+conversation never receives an embed merely for decoration.
 
 ---
 
-# Project Motto
+## Persistence
 
-Project Nexus is designed to become more than a Discord bot.
+Nexus uses one SQLite database in WAL mode. Startup migrations are additive.
 
-It is an extensible AI platform that can grow into multiple applications while keeping one unified architecture.
+| Table | Responsibility |
+|---|---|
+| `profiles` | identity, preferences and usage metadata |
+| `messages` | bounded recent conversation |
+| `facts` | durable user facts with provenance and supersession |
+| `knowledge` | verified public claims, confidence, expiry and status |
+| `knowledge_history` | prior values and correction reasons |
+| `tool_health` | source probes, errors and cooldown state |
+| `settings` | runtime settings that must survive restart |
+
+Users can inspect or erase remembered information through `/facts`, `/forget`
+and the matching API route.
+
+---
+
+## Background self-update
+
+`core/updater.py` runs one locked asynchronous cycle:
+
+1. refresh runtime facts;
+2. probe evidence tools;
+3. re-check expired knowledge;
+4. refresh frequently requested topics;
+5. prune expired cache and weak knowledge;
+6. refresh provider model catalogs.
+
+This is knowledge maintenance, not self-modifying code. It never rewrites source
+files or secrets.
+
+---
+
+## Failure behaviour
+
+| Failure | Expected behaviour |
+|---|---|
+| Provider missing or rate-limited | try the next capable provider; retain configured default |
+| Evidence tool unavailable | skip it, record health, disclose reduced evidence |
+| Search deadline reached | use labelled partial evidence or refuse according to policy |
+| Current claim cannot be verified | one bounded retry, then an honest caveat/refusal |
+| Fabricated citation | remove it before Discord output |
+| Raw provider tool-call envelope | execute or normalise it; never post raw markup |
+| Oversized code | attach the complete file |
+| Startup latency is `NaN` | return `null` from health endpoint, not HTTP 500 |
+| Updater cycle fails | log and end that cycle; chat remains available |
+
+---
+
+## Security boundaries
+
+- External text is prompt-framed as untrusted evidence.
+- Output neutralises mass mentions.
+- File reading is opt-in and confined to `FILE_READER_ROOT`.
+- Arithmetic uses a restricted AST evaluator, never `eval`.
+- Secrets come from environment variables and must not be committed.
+- Placeholder OCR, vision and image-generation tools report unavailable rather
+  than pretending to work.
+
+---
+
+## Development rules
+
+- Keep provider-specific HTTP details inside `ai/providers/`.
+- Keep retrieval policy outside Discord cogs.
+- Keep presentation separate from verification.
+- Add a regression test for every routing, safety or formatting bug.
+- Preserve working features while replacing only the failing layer.
+- Update this document, [ARCHITECTURE.md](ARCHITECTURE.md),
+  [ACCURACY.md](ACCURACY.md), and [ROADMAP.md](ROADMAP.md) when behaviour changes.
+
+Project Nexus should expand without discarding its working foundation: build
+once, verify continuously, and extend deliberately.
