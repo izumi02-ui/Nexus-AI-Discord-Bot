@@ -25,10 +25,10 @@ _COMMON = {
     "rupee": "INR", "rupees": "INR", "inr": "INR", "indianrupee": "INR",
     "yen": "JPY", "jpy": "JPY", "yuan": "CNY", "renminbi": "CNY", "cny": "CNY",
     "aud": "AUD", "cad": "CAD", "chf": "CHF", "sgd": "SGD", "aed": "AED",
-    "zar": "ZAR", "brl": "BRL", "inr": "INR", "eur ": "EUR",
+    "zar": "ZAR", "brl": "BRL",
     "krw": "KRW", "try": "TRY", "nok": "NOK", "sek": "SEK", "nzd": "NZD",
     "thb": "THB", "myr": "MYR", "php": "PHP", "idr": "IDR", "pkr": "PKR",
-    "bdt": "BDT", "npr": "NPR", "lkr": "LKR", "jpy": "JPY", "mxn": "MXN",
+    "bdt": "BDT", "npr": "NPR", "lkr": "LKR", "mxn": "MXN",
 }
 
 AMOUNT_RE = re.compile(
