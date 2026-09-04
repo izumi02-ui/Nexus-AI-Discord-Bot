@@ -266,6 +266,7 @@ class AIEngine:
         return {
             "response": text,
             "raw": verification.answer,
+            "query": message,
             "type": route["type"],
             "route": route,
             "report": report,
