@@ -39,6 +39,7 @@ async def fetch(
     retries: int = 1,
     method: str = "get",
     json_body: dict | None = None,
+    data_body: dict | str | None = None,
 ):
     """
     Perform an HTTP request off the event loop.
@@ -69,6 +70,7 @@ async def fetch(
                     url,
                     params=params,
                     json=json_body,
+                    data=data_body,
                     headers=request_headers,
                     timeout=timeout,
                     allow_redirects=True,
