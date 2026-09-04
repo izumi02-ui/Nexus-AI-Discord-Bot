@@ -22,6 +22,13 @@ CODE_INTENT_RE = re.compile(
     re.IGNORECASE,
 )
 
+CODE_SHAPE_RE = re.compile(
+    r"(?m)^\s*(?:import\s+|from\s+\S+\s+import\s+|def\s+|class\s+|"
+    r"async\s+def\s+|const\s+|let\s+|var\s+|function\s+|SELECT\s+|"
+    r"INSERT\s+|UPDATE\s+|<!DOCTYPE\s+html|<html\b)",
+    re.IGNORECASE,
+)
+
 REFERENCE_INTENT_RE = re.compile(
     r"\b(?:explain|explanation|tell me about|how does|how do|why does|"
     r"describe|teach me|break down|walk me through|help me understand|"
@@ -56,7 +63,10 @@ def code_blocks(text: str) -> list[tuple[str, str]]:
 
 def presentation_kind(query: str, answer: str, route: dict | None = None) -> str:
     """Choose plain, reference, solution, or code without asking the model."""
-    if code_blocks(answer) or CODE_INTENT_RE.search(query or ""):
+    if code_blocks(answer):
+        return "code"
+
+    if CODE_INTENT_RE.search(query or "") and CODE_SHAPE_RE.search(answer or ""):
         return "code"
 
     if (route or {}).get("presentation") == "solution":
