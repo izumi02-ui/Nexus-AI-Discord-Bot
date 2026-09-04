@@ -318,6 +318,7 @@ def test_spotify_uses_form_oauth_and_plural_search_containers(monkeypatch):
     assert calls[0][1]["data_body"] == {"grant_type": "client_credentials"}
     assert "params" not in calls[0][1]
     assert calls[1][1]["params"]["type"] == "track,album,artist"
+    assert calls[1][1]["params"]["q"] == "Love Me"
     assert results[0].title == "Track: Love Me"
     assert results[0].image == "https://img.example/cover.jpg"
 
@@ -415,12 +416,13 @@ def test_youtube_uses_official_search_and_video_endpoints(monkeypatch):
     monkeypatch.setattr(youtube_module, "fetch_json", fake_fetch)
 
     results = asyncio.run(
-        youtube_module.YouTubeTool().execute("Find Love Me on YouTube")
+        youtube_module.YouTubeTool().execute("Give me Love Me link from YouTube")
     )
 
     assert calls[0][0] == "https://www.googleapis.com/youtube/v3/search"
     assert calls[0][1]["params"]["key"] == "youtube-key"
     assert calls[0][1]["params"]["type"] == "video"
+    assert calls[0][1]["params"]["q"] == "Love Me"
     assert calls[1][0] == "https://www.googleapis.com/youtube/v3/videos"
     assert results[0].url == "https://www.youtube.com/watch?v=abc123"
     assert results[0].thumbnail.endswith("abc123.jpg")
