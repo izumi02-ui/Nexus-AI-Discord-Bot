@@ -9,6 +9,7 @@ instead of inventing a video title, which is exactly what the placeholder
 version used to invite.
 """
 
+import re
 from typing import List
 
 from search.search_result import SearchResult
@@ -53,14 +54,40 @@ class YouTubeTool(BaseTool):
 
         return stamp.isoformat(timespec="seconds") if stamp else None
 
-    async def execute(self, query: str) -> List[SearchResult]:
-        import re
-
+    @staticmethod
+    def clean_query(query: str) -> str:
+        """Extract the requested title while preserving title words like 'Me'."""
+        text = (query or "").strip()
         text = re.sub(
-            r"\b(find|search|youtube|videos?|about|for|on)\b", " ",
-            (query or ""), flags=re.IGNORECASE,
+            r"^\s*(?:please\s+)?(?:give|send|show)\s+me\s+",
+            "",
+            text,
+            flags=re.IGNORECASE,
         )
-        text = re.sub(r"\s+", " ", text).strip(" ?!.")
+        text = re.sub(
+            r"^\s*(?:find|search(?:\s+for)?|look\s*up|play|watch)\s+",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\s+(?:from|on|in)\s+(?:youtube|yt)\s*$|"
+            r"^\s*(?:youtube|yt)\s*[:\-]?\s*",
+            " ",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\s+(?:(?:video|song|track|trailer)\s+)?(?:link|url)\s*$",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        return re.sub(r"\s+", " ", text).strip(" ?!.-")
+
+    async def execute(self, query: str) -> List[SearchResult]:
+        text = self.clean_query(query)
 
         if not text:
             return []
