@@ -30,6 +30,14 @@ from utils.settings import settings
 
 URL_RE = re.compile(r"https?://[^\s)>\]]+", re.IGNORECASE)
 
+# Some instruction-tuned models imitate a tool protocol in plain text instead
+# of returning an answer.  Nexus does retrieval before the model call, so this
+# markup is never useful to a user and must never reach Discord.
+TOOL_PROTOCOL_RE = re.compile(
+    r"</?(?:tool_call|arg_key|arg_value|function_call|function)[^>]*>",
+    re.IGNORECASE,
+)
+
 MONEY_RE = re.compile(r"[$€£₹]\s?\d[\d,]*(?:\.\d+)?\s?(?:billion|million|trillion|bn)?", re.IGNORECASE)
 
 PERCENT_RE = re.compile(r"\b\d{1,4}(?:\.\d+)?\s?(?:%|percent)\b", re.IGNORECASE)
@@ -160,6 +168,7 @@ class AnswerVerifier:
 
             return verification
 
+        self._check_tool_protocol(verification, allow_retry=allow_retry)
         self._strip_fabricated_links(verification, results)
         self._check_numbers(verification, query, results, freshness)
         self._check_cutoff_excuses(verification, results, freshness)
@@ -186,6 +195,27 @@ class AnswerVerifier:
     # ==========================================
     # Checks
     # ==========================================
+
+    def _check_tool_protocol(
+        self,
+        verification: Verification,
+        *,
+        allow_retry: bool,
+    ) -> None:
+        """Reject model-generated tool syntax instead of exposing it."""
+        if not TOOL_PROTOCOL_RE.search(verification.answer):
+            return
+
+        verification.issues.append("model emitted unevaluated tool-call markup")
+        verification.grounded = False
+        verification.confidence = 0.0
+
+        if allow_retry and getattr(settings, "auto_retry_with_search", True):
+            verification.needs_retry = True
+        else:
+            # A retry has already been spent (or retries are disabled).  A
+            # short refusal is safer than displaying internal-looking syntax.
+            verification.refused = True
 
     @staticmethod
     def _canon(url: str) -> str:
@@ -413,19 +443,26 @@ class AnswerVerifier:
 
         time_sensitive = freshness in {"instant", "short"}
 
-        if (
-            not verification.grounded
-            and time_sensitive
-            and getattr(settings, "refuse_when_unverified", False)
-        ):
-            # Configured to prefer silence over guessing: a hedge is still a
-            # guess about the weather, so say plainly that this is unchecked.
-            verification.refused = True
-
-            return
-
         if not self._states_something_checkable(verification):
-            # The model already hedged: that is an honest answer, leave it.
+            if (
+                time_sensitive
+                and not verification.grounded
+                and allow_retry
+                and getattr(settings, "auto_retry_with_search", True)
+            ):
+                verification.needs_retry = True
+                return
+
+            if (
+                time_sensitive
+                and not verification.grounded
+                and getattr(settings, "refuse_when_unverified", False)
+            ):
+                verification.refused = True
+                return
+
+            # The model already hedged: for non-live questions that is an
+            # honest answer and can stand with a low confidence marker.
             verification.issues.append("answered without evidence, hedged")
             verification.confidence = min(verification.confidence, 0.45)
 
@@ -521,7 +558,10 @@ class AnswerVerifier:
             "Answer again using ONLY the evidence supplied in this prompt. "
             "If the evidence does not cover the question, say precisely which "
             "part you cannot confirm. Do not mention your training data, and "
-            "do not cite any link that is not written above."
+            "do not cite any link that is not written above. Return only the "
+            "final natural-language answer. Never output <tool_call>, "
+            "<arg_key>, <arg_value>, JSON tool requests, or instructions for "
+            "another tool to run."
         )
 
     def refusal_text(self, query: str, report) -> str:
