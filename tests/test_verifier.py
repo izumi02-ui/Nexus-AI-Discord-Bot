@@ -39,7 +39,15 @@ def test_grounded_answer_passes_through(result):
     outcome = verifier.verify(
         query="who is the prime minister of india",
         answer=answer,
-        report=make_report(evidence),
+        report=make_report(
+            evidence,
+            result(
+                title="PM confirmation",
+                content="The prime minister of India is Shekhar Kumar as of 2026.",
+                source="Second Example",
+                url="https://second.example/pm",
+            ),
+        ),
         freshness="short",
     )
 
@@ -63,7 +71,14 @@ def test_fabricated_link_is_removed(result):
     outcome = verifier.verify(
         query="who is the prime minister of india",
         answer=answer,
-        report=make_report(evidence),
+        report=make_report(
+            evidence,
+            result(
+                content="The prime minister of India is Shekhar Kumar.",
+                source="Second Example",
+                url="https://second.example/pm",
+            ),
+        ),
         freshness="short",
     )
 
@@ -129,6 +144,34 @@ def test_time_sensitive_answer_without_evidence_is_retried(result):
     assert outcome.needs_retry is True
     assert outcome.grounded is False
     assert "unverified" in outcome.summary.lower()
+
+
+def test_raw_tool_call_is_retried_and_never_accepted():
+    answer = (
+        "<tool_call><tool_call>duckduckgo</tool_call>"
+        "<arg_key>query</arg_key><arg_value>PS6 news</arg_value></tool_call>"
+    )
+
+    first = verifier.verify(
+        query="upcoming PS6 news",
+        answer=answer,
+        report=None,
+        freshness="short",
+    )
+
+    assert first.needs_retry is True
+    assert first.grounded is False
+
+    final = verifier.verify(
+        query="upcoming PS6 news",
+        answer=answer,
+        report=None,
+        freshness="short",
+        allow_retry=False,
+    )
+
+    assert final.refused is True
+    assert "<tool_call>" not in final.answer
 
 
 def test_stable_question_without_evidence_is_fine():
