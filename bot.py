@@ -275,14 +275,47 @@ async def answer_for(message: discord.Message, text: str) -> dict:
         include_footer=True,
     )
 
+
+async def is_reply_to_nexus(message: discord.Message) -> bool:
+    """True when a Discord reply targets this bot, even without a mention."""
+    reference = message.reference
+
+    if reference is None or reference.message_id is None:
+        return False
+
+    resolved = reference.resolved
+
+    if isinstance(resolved, discord.Message):
+        return resolved.author.id == bot.user.id
+
+    try:
+        original = await message.channel.fetch_message(reference.message_id)
+    except (discord.HTTPException, discord.NotFound, discord.Forbidden):
+        return False
+
+    return original.author.id == bot.user.id
+
 @bot.event
 async def on_message(message: discord.Message):
     # Ignore bots
     if message.author.bot:
         return
 
-    # Respond when mentioned
-    if bot.user in message.mentions or isinstance(message.channel, discord.DMChannel):
+    # A valid prefix command is handled only by the command system. Without
+    # this guard, a command sent in DM would also be treated as normal AI chat.
+    ctx = await bot.get_context(message)
+
+    if ctx.valid:
+        await bot.process_commands(message)
+        return
+
+    is_dm = message.guild is None
+    mentioned = bot.user in message.mentions
+    replied_to_nexus = await is_reply_to_nexus(message)
+
+    # DMs are private one-to-one conversations, so no mention is necessary.
+    # In servers, Nexus responds only to a mention or a direct reply to Nexus.
+    if is_dm or mentioned or replied_to_nexus:
         user_message = (
             message.content
             .replace(f"<@{bot.user.id}>", "")
