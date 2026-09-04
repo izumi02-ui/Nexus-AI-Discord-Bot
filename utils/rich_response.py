@@ -11,6 +11,8 @@ NEXUS_COLOUR = discord.Colour.from_rgb(88, 101, 242)
 CODE_COLOUR = discord.Colour.from_rgb(46, 204, 113)
 EMBED_CHUNK = 3800
 CODE_EMBED_LIMIT = 3400
+LINK_LIMIT = 10
+LINK_CAPTION_LIMIT = 320
 
 CODE_BLOCK_RE = re.compile(
     r"```(?P<language>[A-Za-z0-9_+.#-]*)\n(?P<code>[\s\S]*?)```"
@@ -144,8 +146,28 @@ def _chunks(text: str, limit: int = EMBED_CHUNK) -> list[str]:
 
 def _footer(requester) -> str:
     user_id = getattr(requester, "id", requester)
+    display_name = (
+        getattr(requester, "display_name", None)
+        or getattr(requester, "global_name", None)
+        or getattr(requester, "name", None)
+        or "Unknown User"
+    )
+    username = (
+        getattr(requester, "name", None)
+        or getattr(requester, "username", None)
+    )
 
-    return f"-# Requested by `{user_id}` • Nexus AI"
+    display_name = discord.utils.escape_markdown(str(display_name))[:80]
+    parts = [f"Requested by **{display_name}**"]
+
+    if username:
+        clean_username = str(username).lstrip("@")
+        clean_username = discord.utils.escape_markdown(clean_username)[:40]
+        parts.append(f"@{clean_username}")
+
+    parts.extend((f"ID `{user_id}`", "Nexus AI"))
+
+    return "-# " + " • ".join(parts)
 
 
 def _explanation_parts(text: str, *, solution: bool = False) -> tuple[str, str, str]:
@@ -171,19 +193,86 @@ def _explanation_parts(text: str, *, solution: bool = False) -> tuple[str, str, 
     return intro, clean, closing
 
 
-def _source_lines(report) -> str:
-    lines = []
+def _link_results(report) -> list:
+    """Unique, real HTTP links returned by evidence tools."""
+    rows = []
+    seen = set()
 
-    for result in list(getattr(report, "results", []) or [])[:3]:
+    for result in list(getattr(report, "results", []) or []):
         url = getattr(result, "url", None)
 
-        if not url:
+        if not isinstance(url, str) or not url.startswith(("https://", "http://")):
             continue
 
-        label = (getattr(result, "source", None) or "Source")[:80]
-        lines.append(f"[{label}]({url})")
+        clean_url = url.rstrip("/")
 
-    return " • ".join(lines)[:1024]
+        if clean_url in seen:
+            continue
+
+        seen.add(clean_url)
+        rows.append(result)
+
+        if len(rows) >= LINK_LIMIT:
+            break
+
+    return rows
+
+
+def _link_caption(result) -> str:
+    content = re.sub(r"\s+", " ", str(getattr(result, "content", "") or "")).strip()
+    content = re.sub(r"https?://\S+", "", content).strip(" -•")
+    source = str(getattr(result, "source", None) or "Source")
+
+    if not content:
+        content = f"Result provided by {source}."
+
+    if len(content) > LINK_CAPTION_LIMIT:
+        content = content[: LINK_CAPTION_LIMIT - 1].rsplit(" ", 1)[0] + "…"
+
+    return safe_text(content)
+
+
+async def _send_links_embed(destination, report) -> bool:
+    """Send every retrieved URL in one copy-friendly Discord embed."""
+    rows = _link_results(report)
+
+    if not rows:
+        return False
+
+    embed = discord.Embed(
+        title="Links & References",
+        description=(
+            f"{len(rows)} verified link{'s' if len(rows) != 1 else ''} "
+            "from the retrieved results."
+        ),
+        colour=NEXUS_COLOUR,
+    )
+
+    first_url = getattr(rows[0], "url", None)
+
+    if first_url:
+        embed.url = first_url
+
+    image = reference_image(report)
+
+    if image:
+        embed.set_thumbnail(url=image)
+
+    for index, result in enumerate(rows, start=1):
+        title = safe_text(
+            str(getattr(result, "title", None) or getattr(result, "source", None) or "Link")
+        )
+        source = safe_text(str(getattr(result, "source", None) or "Source"))
+        url = getattr(result, "url")
+        embed.add_field(
+            name=f"{index}. {title[:220]}",
+            value=f"{_link_caption(result)}\n[{source} — Open link]({url})",
+            inline=False,
+        )
+
+    await _send(destination, embed=embed)
+
+    return True
 
 
 async def _send(destination, **kwargs):
@@ -202,12 +291,19 @@ async def _send_plain(destination, content: str) -> None:
         await send_long_message(destination, safe_text(content.strip()))
 
 
-async def _send_closing(destination, content: str, requester) -> None:
+async def _send_closing(destination, content: str, requester, outcome=None) -> None:
     closing = (content or "").strip()
+    verification = (outcome or {}).get("verification")
+    verification_note = None
+
+    if verification is not None and callable(getattr(verification, "footer", None)):
+        verification_note = verification.footer()
+
     footer = _footer(requester)
+    parts = [part for part in (closing, verification_note, footer) if part]
     await _send_plain(
         destination,
-        f"{closing}\n\n{footer}" if closing else footer,
+        "\n\n".join(parts),
     )
 
 
@@ -238,7 +334,8 @@ async def _send_code(destination, outcome: dict, requester) -> None:
             colour=CODE_COLOUR,
         )
         await _send(destination, embed=embed)
-        await _send_closing(destination, closing, requester)
+        await _send_links_embed(destination, outcome.get("report"))
+        await _send_closing(destination, closing, requester, outcome)
         return
 
     for index, (language, code) in enumerate(blocks, start=1):
@@ -267,7 +364,8 @@ async def _send_code(destination, outcome: dict, requester) -> None:
         file = discord.File(io.BytesIO(code.encode("utf-8")), filename=filename)
         await _send(destination, embed=embed, file=file)
 
-    await _send_closing(destination, closing, requester)
+    await _send_links_embed(destination, outcome.get("report"))
+    await _send_closing(destination, closing, requester, outcome)
 
 
 async def _send_explanation(
@@ -282,7 +380,6 @@ async def _send_explanation(
     intro, core, closing = _explanation_parts(raw, solution=solution)
     chunks = _chunks(core)
     image = reference_image(report)
-    sources = _source_lines(report)
     query = outcome.get("query") or (outcome.get("route") or {}).get("query")
 
     await _send_plain(destination, intro)
@@ -299,9 +396,6 @@ async def _send_explanation(
             if image:
                 embed.set_image(url=image)
 
-            if sources:
-                embed.add_field(name="References", value=sources, inline=False)
-
             verification = outcome.get("verification")
 
             if verification is not None:
@@ -313,7 +407,8 @@ async def _send_explanation(
 
         await _send(destination, embed=embed)
 
-    await _send_closing(destination, closing, requester)
+    await _send_links_embed(destination, report)
+    await _send_closing(destination, closing, requester, outcome)
 
 
 async def send_ai_response(destination, outcome: dict, requester) -> str:
@@ -329,6 +424,11 @@ async def send_ai_response(destination, outcome: dict, requester) -> str:
     elif kind == "reference":
         await _send_explanation(destination, outcome, requester)
     else:
-        await send_long_message(destination, outcome.get("response") or answer)
+        # Use the verified raw answer here. ``response`` contains the legacy
+        # plain-text sources/footer; links now have a deterministic embed and
+        # the requester identity is rendered from the real Discord user.
+        await _send_plain(destination, answer)
+        await _send_links_embed(destination, outcome.get("report"))
+        await _send_closing(destination, "", requester, outcome)
 
     return kind
