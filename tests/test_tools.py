@@ -170,3 +170,111 @@ def test_tool_manager_ignores_unimplemented_tools():
 
     for name in unimplemented:
         assert name not in selected
+
+
+def test_gnews_uses_v4_api_and_survives_newsapi_failure(monkeypatch):
+    from tools import news as news_module
+    from tools._http import FetchError
+
+    calls = []
+
+    async def fake_fetch(url, **kwargs):
+        calls.append((url, kwargs))
+
+        if "newsapi.org" in url:
+            raise FetchError("quota exhausted")
+
+        return {
+            "articles": [
+                {
+                    "title": "Verified launch update",
+                    "description": "The launch occurred after a weather delay.",
+                    "url": "https://publisher.example/launch",
+                    "image": "https://publisher.example/launch.jpg",
+                    "publishedAt": "2026-09-04T08:00:00Z",
+                    "source": {
+                        "name": "Example Publisher",
+                        "url": "https://publisher.example",
+                    },
+                }
+            ]
+        }
+
+    monkeypatch.setattr(news_module.settings, "news_api_key", "news-key")
+    monkeypatch.setattr(news_module.settings, "gnews_api_key", "gnews-key")
+    monkeypatch.setattr(news_module, "fetch_json", fake_fetch)
+
+    results = asyncio.run(
+        news_module.NewsTool()._from_api("latest launch news", ["launch"])
+    )
+
+    assert [call[0] for call in calls] == [
+        "https://newsapi.org/v2/everything",
+        "https://gnews.io/api/v4/search",
+    ]
+    assert calls[1][1]["params"]["apikey"] == "gnews-key"
+    assert results[0].source == "Example Publisher"
+    assert results[0].image.endswith("launch.jpg")
+
+
+def test_reddit_requires_all_approved_oauth_settings(monkeypatch):
+    from tools import reddit as reddit_module
+
+    monkeypatch.setattr(reddit_module.settings, "reddit_client_id", "")
+    monkeypatch.setattr(reddit_module.settings, "reddit_client_secret", "")
+    monkeypatch.setattr(reddit_module.settings, "reddit_user_agent", "")
+
+    assert reddit_module.RedditTool().available is False
+
+
+def test_reddit_uses_oauth_and_reuses_its_token(monkeypatch):
+    from tools import reddit as reddit_module
+
+    calls = []
+
+    async def fake_fetch(url, **kwargs):
+        calls.append((url, kwargs))
+
+        if url.endswith("/api/v1/access_token"):
+            return {"access_token": "approved-token", "expires_in": 3600}
+
+        return {
+            "data": {
+                "children": [
+                    {
+                        "data": {
+                            "title": "A useful community report",
+                            "selftext": "Users describe their experience.",
+                            "permalink": "/r/python/comments/example/report/",
+                            "subreddit": "python",
+                            "created_utc": 1788512400,
+                            "author": "example_user",
+                            "score": 42,
+                            "num_comments": 7,
+                            "upvote_ratio": 0.9,
+                        }
+                    }
+                ]
+            }
+        }
+
+    monkeypatch.setattr(reddit_module.settings, "reddit_client_id", "client")
+    monkeypatch.setattr(reddit_module.settings, "reddit_client_secret", "secret")
+    monkeypatch.setattr(
+        reddit_module.settings,
+        "reddit_user_agent",
+        "ProjectNexus/2.0 by u/example",
+    )
+    monkeypatch.setattr(reddit_module, "fetch_json", fake_fetch)
+
+    tool = reddit_module.RedditTool()
+    first = asyncio.run(tool.execute("search reddit r/python async discord"))
+    second = asyncio.run(tool.execute("search reddit r/python async discord"))
+
+    assert calls[0][0] == "https://www.reddit.com/api/v1/access_token"
+    assert calls[0][1]["data_body"] == {"grant_type": "client_credentials"}
+    assert calls[1][0] == "https://oauth.reddit.com/r/python/search"
+    assert calls[1][1]["headers"]["Authorization"] == "Bearer approved-token"
+    assert sum(url.endswith("/api/v1/access_token") for url, _ in calls) == 1
+    assert first[0].source == "Reddit"
+    assert second[0].metadata["comments"] == 7
