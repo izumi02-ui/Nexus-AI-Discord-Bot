@@ -262,6 +262,7 @@ class SearchAggregator:
             task.cancel()
 
             failures[tool.name] = "timed out"
+            tool.record_failure("timed out")
 
             logger.warning("Tool %s timed out after %ss", tool.name, timeout)
 
@@ -274,6 +275,7 @@ class SearchAggregator:
                 continue
             except Exception as error:  # noqa: BLE001 - one tool must not sink the rest
                 failures[tool.name] = str(error)[:200]
+                tool.record_failure(error)
 
                 logger.warning(
                     "%s failed: %s",
@@ -284,7 +286,10 @@ class SearchAggregator:
 
             if isinstance(outcome, dict) and outcome.get("success") is False:
                 failures[tool.name] = str(outcome.get("error"))[:200]
+                tool.record_failure(outcome.get("error"))
                 continue
+
+            tool.record_success()
 
             if isinstance(outcome, dict):
                 outcome = [outcome.get("result")]
