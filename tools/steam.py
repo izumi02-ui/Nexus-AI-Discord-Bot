@@ -134,9 +134,6 @@ class SteamTool(BaseTool):
                 if genres:
                     lines.append(f"- Categories: {genres}")
 
-            if item.get("tiny_image"):
-                pass
-
             if detail.get("short_description"):
                 lines.append(
                     "\nStore description: "
@@ -150,6 +147,10 @@ class SteamTool(BaseTool):
                 url=f"https://store.steampowered.com/app/{app_id}",
                 confidence=0.98,
                 category="games",
+                image=(
+                    detail.get("header_image")
+                    or item.get("tiny_image")
+                ),
                 metadata={
                     "app_id": app_id,
                     "price_usd_cents": price.get("final"),
