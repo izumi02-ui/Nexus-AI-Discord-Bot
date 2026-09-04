@@ -2,7 +2,7 @@
 
 ---
 
-## Nexus 2.0.0-alpha.2
+## Nexus 1.3.0-alpha.V3
 **Release Date:** 2026-09-03
 
 The accuracy release. Nexus now decides *when* it is allowed to answer, checks
