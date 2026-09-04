@@ -6,6 +6,13 @@
 
 ### 🐛 Fixed
 
+- Spotify and YouTube search now remove request wording around a title without
+  deleting title words, so requests such as “give me Love Me song link” query
+  the APIs for `Love Me` instead of the whole sentence.
+- Every retrieved URL now appears in one captioned link embed regardless of
+  provider; Spotify links no longer depend on whether the language model chose
+  to repeat them, and YouTube/Spotify artwork is attached to that embed.
+- Discord requester attribution now includes display name, username and user ID.
 - Explicit YouTube, Spotify, Reddit, GitHub, Steam, arXiv, and Stack Overflow
   lookups now route to real integrations before model generation.
 - XML and bracketed `[TOOL_CALL]` text is rejected and can no longer leak into
