@@ -174,6 +174,34 @@ def test_raw_tool_call_is_retried_and_never_accepted():
     assert "<tool_call>" not in final.answer
 
 
+def test_bracketed_tool_call_is_retried_and_never_shown():
+    answer = (
+        "Let me search YouTube for you.\n[TOOL_CALL]\n"
+        '{"tool": "youtube", "args": {"q": "Love Me song"}}\n'
+        "[/TOOL_CALL]"
+    )
+
+    first = verifier.verify(
+        query="Find the Love Me song on YouTube",
+        answer=answer,
+        report=None,
+        freshness="static",
+    )
+
+    assert first.needs_retry is True
+
+    final = verifier.verify(
+        query="Find the Love Me song on YouTube",
+        answer=answer,
+        report=None,
+        freshness="static",
+        allow_retry=False,
+    )
+
+    assert final.refused is True
+    assert "[TOOL_CALL]" not in final.answer
+
+
 def test_stable_question_without_evidence_is_fine():
     outcome = verifier.verify(
         query="explain photosynthesis",
