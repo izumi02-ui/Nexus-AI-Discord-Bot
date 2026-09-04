@@ -16,6 +16,23 @@ from utils.settings import settings
 
 
 class OpenRouterProvider(BaseProvider):
+    @staticmethod
+    def _web_search_options() -> dict:
+        """Build the current OpenRouter server-tool request options."""
+        requested = int(getattr(settings, "openrouter_search_results", 5))
+
+        if requested <= 3:
+            context_size = "low"
+        elif requested >= 7:
+            context_size = "high"
+        else:
+            context_size = "medium"
+
+        return {
+            "tools": [{"type": "openrouter:web_search"}],
+            "web_search_options": {"search_context_size": context_size},
+        }
+
     @property
     def name(self) -> str:
         return "OpenRouter"
@@ -86,19 +103,16 @@ class OpenRouterProvider(BaseProvider):
         if fallback_models:
             extra_body["models"] = fallback_models
 
+        # Provider-native search is exposed through WebSearchTool and is run
+        # only for routes that need fresh evidence.  Do not charge for a
+        # second search again while composing the final answer.
         if grounded is None:
-            grounded = bool(getattr(settings, "openrouter_web_search", False))
+            grounded = False
 
         if grounded:
-            # Server-side web grounding: OpenRouter runs the search and injects
-            # the results, which works even on free models that have no browse
-            # ability of their own.
-            extra_body["plugins"] = [
-                {
-                    "id": "web",
-                    "max_results": int(getattr(settings, "openrouter_search_results", 5)),
-                }
-            ]
+            # Current OpenRouter server-tool protocol.  The older `web`
+            # plugin still works on some routes but is deprecated.
+            extra_body.update(self._web_search_options())
 
         request_options = {
             "model": primary_model,
@@ -184,22 +198,37 @@ class OpenRouterProvider(BaseProvider):
                 },
                 {"role": "user", "content": query},
             ],
-            extra_body={
-                "plugins": [
-                    {
-                        "id": "web",
-                        "max_results": int(
-                            getattr(settings, "openrouter_search_results", 5)
-                        ),
-                    }
-                ]
-            },
+            extra_body=self._web_search_options(),
         )
 
         if not response.choices:
             raise RuntimeError("OpenRouter web search returned no choices.")
 
-        return (response.choices[0].message.content or "").strip()
+        message = response.choices[0].message
+        content = (message.content or "").strip()
+
+        # OpenRouter returns web citations as annotations.  Append their real
+        # URLs to the evidence so the verifier can distinguish them from links
+        # invented by the answering model.
+        sources = []
+
+        for annotation in (getattr(message, "annotations", None) or []):
+            if hasattr(annotation, "model_dump"):
+                annotation = annotation.model_dump()
+
+            if not isinstance(annotation, dict):
+                continue
+
+            citation = annotation.get("url_citation") or annotation
+            url = citation.get("url") if isinstance(citation, dict) else None
+
+            if url and url not in sources:
+                sources.append(url)
+
+        if sources:
+            content += "\n\n" + "\n".join(f"SOURCE: {url}" for url in sources)
+
+        return content.strip()
 
     # =====================================
     # Model chain maintenance (self-healing)
