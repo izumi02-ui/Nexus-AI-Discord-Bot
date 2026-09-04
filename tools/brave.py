@@ -3,10 +3,9 @@ Project Nexus
 
 Brave Search Tool
 
-Free-tier web search for Nexus (https://brave.com/search/api/ - 2,000 queries
-a month on the free plan). This is the highest-value optional key in the whole
-project: it turns "current events" questions from a coin flip into a grounded
-answer with real URLs.
+Optional paid web search for Nexus. It turns current-event questions into
+grounded answers with real URLs, but it is not required: provider search,
+Google grounding, DuckDuckGo and topic-specific sources remain available.
 
 Without BRAVE_API_KEY the tool reports itself unavailable and is skipped by
 the aggregator, exactly like every other keyless-degraded tool.
