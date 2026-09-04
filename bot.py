@@ -48,6 +48,7 @@ from utils.cooldown import cooldown
 from utils.discord_utils import send_long_message
 from utils.logger import logger
 from utils.permissions import is_admin
+from utils.rich_response import send_ai_response
 from utils.settings import settings
 
 COG_PACKAGE = "commands"
@@ -265,16 +266,13 @@ def attachments_of(message: discord.Message) -> list[str]:
     return [attachment.url for attachment in message.attachments[:3]]
 
 
-async def answer_for(message: discord.Message, text: str) -> str:
-    outcome = await engine.respond(
+async def answer_for(message: discord.Message, text: str) -> dict:
+    return await engine.respond(
         user_id=message.author.id,
         message=text,
         attachments=attachments_of(message),
         include_footer=True,
     )
-
-    return outcome["response"]
-
 
 @bot.event
 async def on_message(message: discord.Message):
@@ -313,11 +311,12 @@ async def on_message(message: discord.Message):
 
         try:
             async with message.channel.typing():
-                response = await answer_for(message, user_message)
+                outcome = await answer_for(message, user_message)
 
-            await send_long_message(
+            await send_ai_response(
                 message.channel,
-                response,
+                outcome,
+                message.author,
             )
 
         except Exception as error:
@@ -349,11 +348,12 @@ async def ai(ctx, *, message):
 
     async with ctx.typing():
         try:
-            response = await answer_for(ctx.message, message)
+            outcome = await answer_for(ctx.message, message)
 
-            await send_long_message(
+            await send_ai_response(
                 ctx,
-                response,
+                outcome,
+                ctx.author,
             )
 
         except Exception as error:
