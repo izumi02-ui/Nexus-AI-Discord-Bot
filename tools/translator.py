@@ -15,7 +15,7 @@ import re
 from typing import List
 
 from search.search_result import SearchResult
-from tools._http import FetchError, fetch_json
+from tools._http import FetchError, fetch_json, truncate
 from tools.base import BaseTool
 from utils.logger import logger
 from utils.settings import settings
