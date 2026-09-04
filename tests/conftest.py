@@ -57,6 +57,7 @@ def _no_network(monkeypatch):
         )
 
     monkeypatch.setattr(http, "fetch_json", blocked, raising=False)
+    monkeypatch.setattr(http, "fetch", blocked, raising=False)
     monkeypatch.setattr(http, "fetch_page", blocked, raising=False)
     monkeypatch.setattr(http, "fetch_text", blocked, raising=False)
 
