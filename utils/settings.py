@@ -42,6 +42,9 @@ from config import (
     SPOTIFY_CLIENT_ID,
     SPOTIFY_CLIENT_SECRET,
     GITHUB_TOKEN,
+    REDDIT_CLIENT_ID,
+    REDDIT_CLIENT_SECRET,
+    REDDIT_USER_AGENT,
     NEWS_API_KEY,
     GNEWS_API_KEY,
     NEWS_FEED_MAP,
@@ -128,6 +131,9 @@ class Settings:
         self.spotify_client_id = SPOTIFY_CLIENT_ID
         self.spotify_client_secret = SPOTIFY_CLIENT_SECRET
         self.github_token = GITHUB_TOKEN
+        self.reddit_client_id = REDDIT_CLIENT_ID
+        self.reddit_client_secret = REDDIT_CLIENT_SECRET
+        self.reddit_user_agent = REDDIT_USER_AGENT
         self.news_api_key = NEWS_API_KEY
         self.gnews_api_key = GNEWS_API_KEY
         self.news_feeds = dict(NEWS_FEED_MAP)
