@@ -12,7 +12,6 @@ publish date so the freshness rules can judge it.
 """
 
 import asyncio
-import os
 import re
 from typing import List
 
@@ -20,6 +19,7 @@ from search.search_result import SearchResult
 from tools._http import FetchError, fetch_text, fetch_json, html_to_text, truncate
 from tools.base import BaseTool
 from utils.logger import logger
+from utils.settings import settings
 
 FEEDS = {
     "world": [
@@ -111,8 +111,6 @@ class NewsTool(BaseTool):
 
         if keyed:
             return keyed
-
-        from utils.settings import settings
 
         feed_pairs = list(FEEDS.get(section, FEEDS["world"]))
 
@@ -267,31 +265,31 @@ class NewsTool(BaseTool):
         return items
 
     async def _from_api(self, text: str, terms) -> List[SearchResult]:
-        """Use a keyed news API when the operator configured one."""
-        api_key = os.getenv("NEWS_API_KEY")
-        gnews_key = os.getenv("GNEWS_API_KEY")
+        """Try configured news APIs independently, then let RSS take over."""
+        query = " ".join(terms) or text
 
-        try:
-            if api_key:
+        if settings.news_api_key:
+            try:
                 data = await fetch_json(
                     "https://newsapi.org/v2/everything",
                     params={
-                        "q": " ".join(terms) or text,
+                        "q": query,
                         "sortBy": "publishedAt",
                         "pageSize": 6,
-                        "apiKey": api_key,
+                        "apiKey": settings.news_api_key,
                     },
                     timeout=12,
                 )
 
                 articles = (data or {}).get("articles") or []
 
-                return [
+                results = [
                     SearchResult(
                         title=(item.get("title") or "").strip(),
                         content=(item.get("description") or item.get("title") or "").strip(),
                         source=((item.get("source") or {}).get("name")) or "NewsAPI",
                         url=item.get("url"),
+                        image=item.get("urlToImage"),
                         published=item.get("publishedAt"),
                         confidence=0.93,
                         category="news",
@@ -300,32 +298,63 @@ class NewsTool(BaseTool):
                     if item.get("title")
                 ]
 
-            if gnews_key:
+                if results:
+                    return results
+            except Exception as error:  # noqa: BLE001 - continue to GNews/RSS
+                logger.info("NewsAPI failed, trying the next news source: %s", error)
+
+        if settings.gnews_api_key:
+            try:
                 data = await fetch_json(
-                    "https://newsapi.gnews.io/query",
+                    "https://gnews.io/api/v4/search",
                     params={
-                        "q": " ".join(terms) or text,
+                        "q": query,
                         "max": 6,
-                        "token": gnews_key,
+                        "sortby": "publishedAt",
+                        "apikey": settings.gnews_api_key,
                     },
                     timeout=12,
                 )
 
-                return [
-                    SearchResult(
-                        title=item.get("title", "").strip(),
-                        content=item.get("description", "").strip(),
-                        source=item.get("source", "GNews"),
-                        url=item.get("url"),
-                        published=item.get("publishedAt"),
-                        confidence=0.9,
-                        category="news",
-                    ).stamp(tool=self.name)
-                    for item in (data or {}).get("articles", [])
-                    if item.get("title")
-                ]
-        except Exception as error:  # noqa: BLE001 - always fall back to feeds
-            logger.info("News API failed, using RSS feeds: %s", error)
+                results = []
+
+                for item in (data or {}).get("articles", []):
+                    if not item.get("title"):
+                        continue
+
+                    source = item.get("source") or {}
+                    source_name = (
+                        source.get("name") if isinstance(source, dict) else source
+                    ) or "GNews"
+
+                    results.append(
+                        SearchResult(
+                            title=item.get("title", "").strip(),
+                            content=(
+                                item.get("description")
+                                or item.get("content")
+                                or item.get("title")
+                                or ""
+                            ).strip(),
+                            source=source_name,
+                            url=item.get("url"),
+                            image=item.get("image"),
+                            published=item.get("publishedAt"),
+                            confidence=0.93,
+                            category="news",
+                            metadata={
+                                "source_url": (
+                                    source.get("url")
+                                    if isinstance(source, dict) else None
+                                ),
+                            },
+                        ).stamp(tool=self.name)
+                    )
+
+                if results:
+                    return results
+            except Exception as error:  # noqa: BLE001 - RSS is always available
+                logger.info("GNews failed, using RSS feeds: %s", error)
 
         return []
 
