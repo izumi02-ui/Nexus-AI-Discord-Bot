@@ -10,6 +10,7 @@ unavailable and the aggregator skips it.
 
 import asyncio
 import base64
+import re
 import time
 from typing import List
 
@@ -49,6 +50,44 @@ class SpotifyTool(BaseTool):
             settings.spotify_client_id and settings.spotify_client_secret
         )
 
+    @staticmethod
+    def clean_query(query: str) -> str:
+        """Remove request wording without deleting words inside a song title."""
+        text = (query or "").strip()
+        text = re.sub(
+            r"^\s*(?:please\s+)?(?:give|send|show)\s+me\s+",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"^\s*(?:find|search(?:\s+for)?|look\s*up|play)\s+",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\s+(?:from|on|in)\s+spotify\s*$|^\s*spotify\s*[:\-]?\s*",
+            " ",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\s+(?:(?:song|track|album|artist|playlist)\s+)?"
+            r"(?:link|url)\s*$",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\s+(?:song|track|album|artist|playlist)\s*$",
+            "",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        return re.sub(r"\s+", " ", text).strip(" ?!.-")
+
     async def token(self) -> str | None:
         async with _LOCK:
             if _TOKEN["value"] and time.time() < _TOKEN["expires_at"] - 30:
@@ -82,13 +121,7 @@ class SpotifyTool(BaseTool):
             return _TOKEN["value"]
 
     async def execute(self, query: str) -> List[SearchResult]:
-        import re
-
-        text = re.sub(
-            r"\b(spotify|search|look up|song|track|album|artist)\b", " ",
-            (query or ""), flags=re.IGNORECASE,
-        )
-        text = re.sub(r"\s+", " ", text).strip(" ?!.")
+        text = self.clean_query(query)
 
         if not text:
             return []
