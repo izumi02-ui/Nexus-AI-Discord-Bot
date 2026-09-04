@@ -22,6 +22,7 @@ Discord message
       │
       ▼
 bot.py ──────────────── intents, cog loading, health server, updater start
+      │                  DM without mention · guild mention/reply · idle presence
       │
       ▼
 ai/engine.py            orchestration (ask / respond)
@@ -51,6 +52,9 @@ ai/engine.py            orchestration (ask / respond)
       │        cutoff excuses rewritten · conflicts disclosed
       │        └─ one bounded repair pass (re-ask with evidence) — never a loop
       │
+      ├─▶ utils/rich_response.py       choose plain / reference / solution / code
+      │        plain chat stays plain · evidence images only · long code attached
+      │
       └─▶ persistence
                database/memory.py       rolling conversation window
                ai/memory_extractor.py   durable personal facts
@@ -67,14 +71,14 @@ read.
 
 | Layer | owns | must never |
 |---|---|---|
-| `bot.py` | Discord events, cog loading, health endpoint | contain logic |
+| `bot.py` | Discord events, DM/mention/reply ingress, cog loading, health endpoint | contain AI policy |
 | `commands/` | presentation, permissions, cooldowns | call providers directly |
 | `ai/` | orchestration, prompting, verification, learning | invent facts itself |
 | `search/` | retrieval policy: freshness, cache, ranking, reports | know what a Discord message is |
 | `tools/` | one external API each, honest failures, declared TTLs | return placeholder text as success |
 | `database/` | profiles, memory, facts, verified knowledge, history | hold business rules |
 | `core/` | the self-updating loop | mutate user settings or config.py |
-| `utils/` | settings, prompts, time, formatting, permissions | depend on `ai/` |
+| `utils/` | settings, prompts, time, Discord presentation, permissions | make accuracy decisions |
 | `api/` | HTTP surface over the same engine | reimplement pipeline logic |
 
 ---
@@ -105,6 +109,11 @@ read.
 7. **Learning** (`database/knowledge.py`) — only grounded answers become durable
    rows, with history, confidence, expiry and a disputed state for
    contradictions.
+8. **Presentation** (`utils/rich_response.py`) — the verified outcome is rendered
+   without changing its meaning. Simple replies remain plain; explanations and
+   worked solutions get a focused embed between plain prose; code is split into
+   copyable parts or attached as a complete replacement file. Images must come
+   from retrieved HTTPS evidence, never from model-written URLs.
 
 ---
 
@@ -161,6 +170,8 @@ exist so a person can audit and erase what the bot says about them.
 | Search deadline exceeded | partial evidence is used, `report.stale`/`truncated` flags travel with it |
 | Updater exception | logged, cycle ends, chat unaffected |
 | Model returns a fabricated citation | stripped by the verifier and logged |
+| Discord reports `NaN` latency during startup | `/health` returns `null`; the service remains healthy |
+| Model emits a tool-call envelope | the OpenRouter provider executes/normalises it; raw tool markup is not posted |
 
 ---
 
