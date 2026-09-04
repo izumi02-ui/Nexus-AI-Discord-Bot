@@ -63,6 +63,7 @@ COMPUTABLE_RE = re.compile(
 
 REFERENCE_TOPIC_RE = re.compile(
     r"\b(?:explain|explanation|tell me about|how does|why does|overview|"
+    r"describe|teach me|break down|walk me through|help me understand|"
     r"architecture|working of|difference between|compare|history of|"
     r"information about|in detail)\b",
     re.IGNORECASE,
@@ -71,6 +72,12 @@ REFERENCE_TOPIC_RE = re.compile(
 CODE_TOPIC_RE = re.compile(
     r"\b(?:code|script|function|class|program|bot|api|html|css|javascript|"
     r"python|java|c\+\+|replacement|source file)\b",
+    re.IGNORECASE,
+)
+
+SOLUTION_TOPIC_RE = re.compile(
+    r"\b(?:solve|calculate|compute|evaluate|simplify|differentiate|derivative|"
+    r"integrate|integral|calculus|equation|limit\s+of)\b",
     re.IGNORECASE,
 )
 
@@ -93,6 +100,7 @@ class RequestRouter:
 
         freshness = classify(text)
         budget = budget_for(text)
+        solution_topic = bool(SOLUTION_TOPIC_RE.search(text))
 
         decision = {
             "type": "chat",
@@ -105,7 +113,7 @@ class RequestRouter:
             "cacheable": freshness not in {"instant"},
             "calculator": False,
             "grounded": False,
-            "presentation": "plain",
+            "presentation": "solution" if solution_topic else "plain",
         }
 
         if not text:
@@ -139,6 +147,7 @@ class RequestRouter:
                 calculator=True,
                 cacheable=True,
                 grounded=True,
+                presentation="solution",
             )
 
             return decision
@@ -180,6 +189,7 @@ class RequestRouter:
                 grounded=True,
                 cacheable=freshness != "instant",
                 calculator=tool_name == "calculator",
+                presentation="solution" if tool_name == "calculator" else decision["presentation"],
             )
 
             if budget_cap:
@@ -196,6 +206,7 @@ class RequestRouter:
 
         reference_topic = bool(
             REFERENCE_TOPIC_RE.search(text) and not CODE_TOPIC_RE.search(text)
+            and not solution_topic
         )
 
         should_search = (
@@ -235,7 +246,11 @@ class RequestRouter:
             force=forced,
             grounded=True,
             cacheable=freshness not in {"instant"},
-            presentation="reference" if reference_topic else "plain",
+            presentation=(
+                "solution" if solution_topic
+                else "reference" if reference_topic
+                else "plain"
+            ),
         )
 
         logger.info(
