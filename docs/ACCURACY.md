@@ -80,14 +80,32 @@ one in `knowledge_history`; an unreconcilable contradiction marks the row
 | `SEARCH_MODE` | `auto` | `always` searches every prompt, `never` disables retrieval |
 | `SEARCH_TIMEOUT` | `18` | deadline for the whole evidence phase |
 | `MAX_SOURCES` | `6` | how much to collect |
-| `MIN_SOURCES_FOR_GROUNDING` | `1` | independent domains required to call something verified |
+| `MIN_SOURCES_FOR_GROUNDING` | `2` | independent domains required to call something verified |
 | `VERIFICATION_ENABLED` | `true` | off = skip checks 1–4 (keep for debugging only) |
 | `AUTO_RETRY_WITH_SEARCH` | `true` | allow the single repair pass |
-| `REFUSE_WHEN_UNVERIFIED` | `false` | prefer a refusal over an unverified time-sensitive answer |
+| `REFUSE_WHEN_UNVERIFIED` | `true` | prefer a refusal over an unverified time-sensitive answer |
 | `CITATION_MODE` | `auto` | `footer` / `inline` / `off` |
 | `KNOWLEDGE_TTL` | `86400` | how long a stored fact may be quoted before re-check |
 | `KNOWLEDGE_MIN_CONFIDENCE` | `0.35` | below this a row is pruned |
-| `OPENROUTER_WEB_SEARCH` | `false` | let the provider ground itself (paid, so opt-in) |
+| `OPENROUTER_WEB_SEARCH` | `true` | allow OpenRouter's live search tool for fresh questions; may consume credits |
+
+Code generation is a deliberate routing exception. Words such as "now" often
+mean "do this next", so an ordinary code request stays `static`. It searches
+only when the user explicitly requests lookup or asks for current APIs,
+releases, versions or documentation. This also prevents a code sample mentioning
+weather or currency from being stolen by an exact data tool.
+
+## Discord presentation
+
+Presentation never changes the accuracy verdict:
+
+- simple chat is sent as plain text;
+- substantial explanations and worked solutions use a plain introduction,
+  focused embed content, then a plain conclusion and requester line;
+- code is embedded only when the answer contains fenced or recognisably
+  executable code;
+- reference images come only from HTTPS URLs returned by evidence tools;
+- source links and the verifier disclosure stay attached to the same outcome.
 
 Admin commands (creator only): `/nexus accuracy`, `/nexus status`,
 `/nexus reverify`, `/nexus tools`, `/nexus models`, `/nexus knowledge`.
