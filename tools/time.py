@@ -81,9 +81,10 @@ class TimeTool(BaseTool):
             place = city.group(1).strip(" .,?")
 
         if place is None:
-            alias_hit = ALIASES.get(text.lower().strip(" ?!. "))
+            cleaned = text.lower().strip().strip("?!.")
+            alias_hit = ALIASES.get(cleaned)
 
-            place = text.strip(" ?!. ") if alias_hit else ""
+            place = text.strip().strip("?!.") if alias_hit else ""
 
         zone_id = ALIASES.get(place.lower())
 
