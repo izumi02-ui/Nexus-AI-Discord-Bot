@@ -239,13 +239,16 @@ class NewsTool(BaseTool):
         items = []
 
         for block in re.findall(r"<(?:item|entry)[\s\S]*?</(?:item|entry)>", xml)[:20]:
-            def field(*names):
+            def field(*names, _block=block):
                 for name in names:
                     match = re.search(
-                        rf"<{name}[^>]*>([\s\S]*?)</{name}>", block, re.IGNORECASE
+                        rf"<{name}[^>]*>([\s\S]*?)</{name}>", _block, re.IGNORECASE
                     )
                     if match:
-                        return match.group(1).strip().strip("<![CDATA[]]>")
+                        value = match.group(1).strip()
+                        cdata = re.fullmatch(r"<!\[CDATA\[([\s\S]*?)\]\]>", value)
+
+                        return (cdata.group(1) if cdata else value).strip()
                 return ""
 
             link_match = re.search(
