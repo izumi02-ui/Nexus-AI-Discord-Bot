@@ -136,6 +136,7 @@ class WikipediaTool(BaseTool):
                 published=revision,
                 language=summary.get("lang", "en"),
                 category="encyclopedia",
+                thumbnail=(summary.get("thumbnail") or {}).get("source"),
                 metadata={
                     "description": summary.get("description"),
                     "revision": revision,
