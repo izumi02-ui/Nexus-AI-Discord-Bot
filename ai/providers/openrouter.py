@@ -19,7 +19,10 @@ class OpenRouterProvider(BaseProvider):
     @staticmethod
     def _web_search_options() -> dict:
         """Build the current OpenRouter server-tool request options."""
-        requested = int(getattr(settings, "openrouter_search_results", 5))
+        requested = max(
+            1,
+            min(25, int(getattr(settings, "openrouter_search_results", 5))),
+        )
 
         if requested <= 3:
             context_size = "low"
@@ -29,8 +32,17 @@ class OpenRouterProvider(BaseProvider):
             context_size = "medium"
 
         return {
-            "tools": [{"type": "openrouter:web_search"}],
-            "web_search_options": {"search_context_size": context_size},
+            "tools": [
+                {
+                    "type": "openrouter:web_search",
+                    "parameters": {
+                        "max_results": requested,
+                        "max_total_results": requested,
+                        "max_uses": 1,
+                        "search_context_size": context_size,
+                    },
+                }
+            ]
         }
 
     @property
@@ -49,7 +61,7 @@ class OpenRouterProvider(BaseProvider):
             function_calling=True,
             reasoning=True,
             streaming=True,
-            # OpenRouter's "web" plugin grounds any model in live search.
+            # OpenRouter's hosted server tool grounds supported model routes.
             web_search=bool(getattr(settings, "openrouter_web_search", False)),
         )
 
@@ -176,14 +188,18 @@ class OpenRouterProvider(BaseProvider):
         """
         Provider-side tools.
 
-        "web_search" is implemented through OpenRouter's web plugin, so a free
-        model behind OpenRouter can still answer current-events questions with
-        real citations instead of a shrug.
+        "web_search" is implemented through OpenRouter's hosted server tool,
+        so supported routes can answer current questions with real citations.
         """
         if tool != "web_search":
             raise NotImplementedError(
                 f"{tool} is not implemented for OpenRouter."
             )
+
+        extra_body = self._web_search_options()
+
+        if len(self.models) > 1:
+            extra_body["models"] = self.models[1:]
 
         response = await self.client.chat.completions.create(
             model=self.models[0],
@@ -198,7 +214,7 @@ class OpenRouterProvider(BaseProvider):
                 },
                 {"role": "user", "content": query},
             ],
-            extra_body=self._web_search_options(),
+            extra_body=extra_body,
         )
 
         if not response.choices:
