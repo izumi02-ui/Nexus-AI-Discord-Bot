@@ -42,6 +42,6 @@ async def current_model():
 
         "provider": provider_manager.name,
 
-        "info": provider_manager.provider.info(),
+        "info": provider_manager.info,
 
     }
