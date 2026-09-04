@@ -7,7 +7,7 @@ Asks the *currently selected model provider* to ground its answer in a live
 web search, which is the cheapest high-quality evidence Nexus can get:
 
   * Gemini  - native google_search tool
-  * OpenRouter - the "web" grounding plugin (any model, incl. free ones)
+  * OpenRouter - the hosted web-search server tool
 
 Anything else the provider does not support returns no results, and the
 aggregator moves on to the keyless tools.
