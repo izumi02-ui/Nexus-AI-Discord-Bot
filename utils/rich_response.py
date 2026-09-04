@@ -24,56 +24,46 @@ CODE_INTENT_RE = re.compile(
 
 REFERENCE_INTENT_RE = re.compile(
     r"\b(?:explain|explanation|tell me about|how does|how do|why does|"
+    r"describe|teach me|break down|walk me through|help me understand|"
     r"overview|guide|architecture|working of|difference between|compare|"
     r"history of|information about|in detail)\b",
     re.IGNORECASE,
 )
 
+SOLUTION_INTENT_RE = re.compile(
+    r"\b(?:solve|calculate|compute|evaluate|simplify|differentiate|derivative|"
+    r"integrate|integral|calculus|equation|limit\s+of)\b",
+    re.IGNORECASE,
+)
+
 EXTENSIONS = {
-    "python": "py",
-    "py": "py",
-    "javascript": "js",
-    "js": "js",
-    "typescript": "ts",
-    "ts": "ts",
-    "html": "html",
-    "css": "css",
-    "java": "java",
-    "json": "json",
-    "yaml": "yml",
-    "yml": "yml",
-    "bash": "sh",
-    "shell": "sh",
-    "sh": "sh",
-    "sql": "sql",
-    "c": "c",
-    "cpp": "cpp",
-    "c++": "cpp",
-    "csharp": "cs",
-    "cs": "cs",
+    "python": "py", "py": "py", "javascript": "js", "js": "js",
+    "typescript": "ts", "ts": "ts", "html": "html", "css": "css",
+    "java": "java", "json": "json", "yaml": "yml", "yml": "yml",
+    "bash": "sh", "shell": "sh", "sh": "sh", "sql": "sql",
+    "c": "c", "cpp": "cpp", "c++": "cpp", "csharp": "cs", "cs": "cs",
 }
 
 
 def code_blocks(text: str) -> list[tuple[str, str]]:
     """Extract fenced code exactly as generated, without reformatting it."""
     return [
-        (
-            (match.group("language") or "text").lower(),
-            match.group("code").rstrip(),
-        )
+        ((match.group("language") or "text").lower(), match.group("code").rstrip())
         for match in CODE_BLOCK_RE.finditer(text or "")
         if match.group("code").strip()
     ]
 
 
-def presentation_kind(
-    query: str,
-    answer: str,
-    route: dict | None = None,
-) -> str:
-    """Choose plain, reference, or code output without asking the model."""
+def presentation_kind(query: str, answer: str, route: dict | None = None) -> str:
+    """Choose plain, reference, solution, or code without asking the model."""
     if code_blocks(answer) or CODE_INTENT_RE.search(query or ""):
         return "code"
+
+    if (route or {}).get("presentation") == "solution":
+        return "solution"
+
+    if SOLUTION_INTENT_RE.search(query or ""):
+        return "solution"
 
     if (route or {}).get("presentation") == "reference":
         return "reference"
@@ -104,12 +94,8 @@ def _title(query: str) -> str:
     clean = re.sub(r"\s+", " ", query or "").strip(" ?!.")
 
     for prefix in (
-        "explain ",
-        "tell me about ",
-        "give me information about ",
-        "information about ",
-        "what is ",
-        "what are ",
+        "explain ", "tell me about ", "give me information about ",
+        "information about ", "what is ", "what are ",
     ):
         if clean.lower().startswith(prefix):
             clean = clean[len(prefix):].strip()
@@ -147,14 +133,32 @@ def _chunks(text: str, limit: int = EMBED_CHUNK) -> list[str]:
 
 
 def _footer(requester) -> str:
-    name = getattr(requester, "display_name", None) or getattr(
-        requester,
-        "name",
-        None,
-    )
     user_id = getattr(requester, "id", requester)
 
-    return f"Requested by {name or user_id} • Nexus AI"
+    return f"-# Requested by `{user_id}` • Nexus AI"
+
+
+def _explanation_parts(text: str, *, solution: bool = False) -> tuple[str, str, str]:
+    """Split a detailed answer into plain intro, embed core and plain ending."""
+    clean = (text or "").strip()
+    paragraphs = [part.strip() for part in re.split(r"\n\s*\n", clean) if part.strip()]
+
+    if len(paragraphs) >= 3:
+        return paragraphs[0], "\n\n".join(paragraphs[1:-1]), paragraphs[-1]
+
+    sentences = re.split(r"(?<=[.!?])\s+", clean)
+    sentences = [sentence.strip() for sentence in sentences if sentence.strip()]
+
+    if len(sentences) >= 3:
+        return sentences[0], " ".join(sentences[1:-1]), sentences[-1]
+
+    intro = (
+        "I’ll work through it clearly, step by step."
+        if solution
+        else "Here’s a structured breakdown."
+    )
+    closing = "That’s the result." if solution else "That’s the core idea."
+    return intro, clean, closing
 
 
 def _source_lines(report) -> str:
@@ -174,9 +178,7 @@ def _source_lines(report) -> str:
 
 async def _send(destination, **kwargs):
     send = getattr(destination, "send", None) or getattr(
-        destination,
-        "send_message",
-        None,
+        destination, "send_message", None
     )
 
     if send is None:
@@ -185,38 +187,52 @@ async def _send(destination, **kwargs):
     return await send(**kwargs)
 
 
-async def _send_code(destination, outcome: dict, requester) -> None:
-    raw = safe_text(
-        str(outcome.get("raw") or outcome.get("response") or "")
-    )
-    blocks = code_blocks(raw)
-    intro = CODE_BLOCK_RE.sub("", raw).strip()
+async def _send_plain(destination, content: str) -> None:
+    if (content or "").strip():
+        await send_long_message(destination, safe_text(content.strip()))
 
-    if intro:
-        embed = discord.Embed(
-            title="Implementation Notes",
-            description=intro[:EMBED_CHUNK],
-            colour=CODE_COLOUR,
-        )
-        embed.set_footer(text=_footer(requester))
-        await _send(destination, embed=embed)
+
+async def _send_closing(destination, content: str, requester) -> None:
+    closing = (content or "").strip()
+    footer = _footer(requester)
+    await _send_plain(
+        destination,
+        f"{closing}\n\n{footer}" if closing else footer,
+    )
+
+
+async def _send_code(destination, outcome: dict, requester) -> None:
+    raw = safe_text(str(outcome.get("raw") or outcome.get("response") or ""))
+    blocks = code_blocks(raw)
+    matches = list(CODE_BLOCK_RE.finditer(raw))
+    intro = raw[:matches[0].start()].strip() if matches else ""
+    prose_after_code = []
+
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(raw)
+        prose = raw[match.end():end].strip()
+
+        if prose:
+            prose_after_code.append(prose)
+
+    closing = "\n\n".join(prose_after_code)
+
+    await _send_plain(destination, intro or "Here is the requested implementation:")
 
     if not blocks:
+        # Code intent was detected, but the provider forgot fences. Keep its
+        # output readable instead of pretending ordinary prose is executable.
         embed = discord.Embed(
             title="Generated Implementation",
             description=raw[:EMBED_CHUNK],
             colour=CODE_COLOUR,
         )
-        embed.set_footer(text=_footer(requester))
         await _send(destination, embed=embed)
+        await _send_closing(destination, closing, requester)
         return
 
     for index, (language, code) in enumerate(blocks, start=1):
-        title = (
-            "Generated Code"
-            if len(blocks) == 1
-            else f"Generated Code • Part {index}"
-        )
+        title = "Generated Code" if len(blocks) == 1 else f"Generated Code • Part {index}"
 
         if len(code) <= CODE_EMBED_LIMIT:
             embed = discord.Embed(
@@ -224,110 +240,85 @@ async def _send_code(destination, outcome: dict, requester) -> None:
                 description=f"```{language}\n{code}\n```",
                 colour=CODE_COLOUR,
             )
-            embed.set_footer(text=_footer(requester))
             await _send(destination, embed=embed)
             continue
 
         extension = EXTENSIONS.get(language, "txt")
         filename = f"nexus_replacement_{index}.{extension}"
         preview = code[:900].rstrip()
-
         embed = discord.Embed(
             title=title,
             description=(
                 f"```{language}\n{preview}\n```\n"
-                f"Full replacement is attached as `{filename}` "
-                "for clean copying."
+                f"Full replacement is attached as `{filename}` for clean copying."
             ),
             colour=CODE_COLOUR,
         )
-        embed.set_footer(text=_footer(requester))
-
-        file = discord.File(
-            io.BytesIO(code.encode("utf-8")),
-            filename=filename,
-        )
-
+        file = discord.File(io.BytesIO(code.encode("utf-8")), filename=filename)
         await _send(destination, embed=embed, file=file)
 
+    await _send_closing(destination, closing, requester)
 
-async def _send_reference(destination, outcome: dict, requester) -> None:
-    raw = safe_text(
-        str(outcome.get("raw") or outcome.get("response") or "")
-    )
+
+async def _send_explanation(
+    destination,
+    outcome: dict,
+    requester,
+    *,
+    solution: bool = False,
+) -> None:
+    raw = safe_text(str(outcome.get("raw") or outcome.get("response") or ""))
     report = outcome.get("report")
-    chunks = _chunks(raw)
+    intro, core, closing = _explanation_parts(raw, solution=solution)
+    chunks = _chunks(core)
     image = reference_image(report)
     sources = _source_lines(report)
+    query = outcome.get("query") or (outcome.get("route") or {}).get("query")
+
+    await _send_plain(destination, intro)
 
     for index, chunk in enumerate(chunks, start=1):
         embed = discord.Embed(
-            title=(
-                _title((outcome.get("route") or {}).get("query", ""))
-                if index == 1
-                else f"Continued • {index}"
-            ),
+            title=("Worked Solution" if solution else _title(query or "Nexus Brief"))
+            if index == 1 else f"Continued • {index}",
             description=chunk,
             colour=NEXUS_COLOUR,
         )
 
         if index == 1:
-            query = outcome.get("query") or (
-                outcome.get("route") or {}
-            ).get("query")
-
-            embed.title = _title(query or "Nexus Brief")
-
             if image:
                 embed.set_image(url=image)
 
             if sources:
-                embed.add_field(
-                    name="References",
-                    value=sources,
-                    inline=False,
-                )
+                embed.add_field(name="References", value=sources, inline=False)
 
             verification = outcome.get("verification")
 
             if verification is not None:
                 embed.add_field(
                     name="Verification",
-                    value=str(
-                        getattr(verification, "summary", "Checked")
-                    )[:1024],
+                    value=str(getattr(verification, "summary", "Checked"))[:1024],
                     inline=False,
                 )
 
-        embed.set_footer(text=_footer(requester))
         await _send(destination, embed=embed)
 
+    await _send_closing(destination, closing, requester)
 
-async def send_ai_response(
-    destination,
-    outcome: dict,
-    requester,
-) -> str:
+
+async def send_ai_response(destination, outcome: dict, requester) -> str:
     """Send one engine outcome using the appropriate Discord presentation."""
     query = str(outcome.get("query") or "")
-    answer = str(
-        outcome.get("raw") or outcome.get("response") or ""
-    )
-
-    kind = presentation_kind(
-        query,
-        answer,
-        outcome.get("route"),
-    )
+    answer = str(outcome.get("raw") or outcome.get("response") or "")
+    kind = presentation_kind(query, answer, outcome.get("route"))
 
     if kind == "code":
         await _send_code(destination, outcome, requester)
+    elif kind == "solution":
+        await _send_explanation(destination, outcome, requester, solution=True)
     elif kind == "reference":
-        await _send_reference(destination, outcome, requester)
+        await _send_explanation(destination, outcome, requester)
     else:
-        await send_long_message(
-            destination,
-            outcome.get("response") or answer,
-        )
+        await send_long_message(destination, outcome.get("response") or answer)
 
     return kind
