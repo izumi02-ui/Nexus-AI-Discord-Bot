@@ -75,6 +75,13 @@ CODE_TOPIC_RE = re.compile(
     re.IGNORECASE,
 )
 
+CODE_FRESH_RE = re.compile(
+    r"\b(?:latest|newest|up[- ]to[- ]date|current(?:\s+[\w.+-]+){0,3}\s+"
+    r"(?:version|release|api|docs?|documentation)|as\s+of\s+20\d\d|"
+    r"recent(?:ly)?\s+released)\b",
+    re.IGNORECASE,
+)
+
 SOLUTION_TOPIC_RE = re.compile(
     r"\b(?:solve|calculate|compute|evaluate|simplify|differentiate|derivative|"
     r"integrate|integral|calculus|equation|limit\s+of)\b",
@@ -171,13 +178,35 @@ class RequestRouter:
 
             return decision
 
+        forced = bool(FORCE_SEARCH_RE.search(text)) or text.lower().startswith(
+            ("/search", "/ask", "/verify")
+        )
+        code_topic = bool(CODE_TOPIC_RE.search(text))
+
+        # Words such as "now" often mean "do this next", not "look up live
+        # information". Ordinary code generation must go straight to the model;
+        # search is reserved for explicit search requests or current API/docs.
+        if code_topic and not forced and not CODE_FRESH_RE.search(text):
+            decision.update(
+                type="chat",
+                tools=[],
+                reason="code generation does not require live evidence",
+                freshness="static",
+                budget=budget_for("write code"),
+                verification=False,
+                grounded=False,
+                cacheable=False,
+            )
+
+            return decision
+
         # ================================
         # Dedicated tools: these answer better than any search, and they
         # answer questions whose wording never looks "current" (a translation,
         # an address, a distance). Missing them is how a bot ends up guessing
         # a currency figure or a timezone instead of reading it.
         # ================================
-        exact = self._exact_tool_hit(text)
+        exact = None if code_topic else self._exact_tool_hit(text)
 
         if exact:
             tool_name, budget_cap = exact
@@ -200,12 +229,8 @@ class RequestRouter:
         # ================================
         # Search decision
         # ================================
-        forced = bool(FORCE_SEARCH_RE.search(text)) or text.lower().startswith(
-            ("/search", "/ask", "/verify")
-        )
-
         reference_topic = bool(
-            REFERENCE_TOPIC_RE.search(text) and not CODE_TOPIC_RE.search(text)
+            REFERENCE_TOPIC_RE.search(text) and not code_topic
             and not solution_topic
         )
 
