@@ -160,13 +160,22 @@ def test_chat_route_returns_grounding_metadata(client, monkeypatch):
         published_at=iso(now_utc()),
     )
 
+    confirmation = SearchResult(
+        title="Central bank confirms",
+        content="The central bank kept its rate at 5.50 percent today.",
+        source="Second Stub News",
+        url="https://second.example/rate",
+        confidence=0.9,
+        published_at=iso(now_utc()),
+    )
+
     from search.report import SearchReport
     from search.ranking import ranking
 
     stub_report = SearchReport(
         query="what is the interest rate",
-        results=[evidence],
-        cross=ranking.cross_check([evidence]),
+        results=[evidence, confirmation],
+        cross=ranking.cross_check([evidence, confirmation]),
         tools_used=["brave"],
         freshness="short",
     )
