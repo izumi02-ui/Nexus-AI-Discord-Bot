@@ -45,6 +45,24 @@ already knows correctly.
   be served once while it refreshes in the background, and the answer then says
   "answered from cached sources".
 
+### Integration behavior
+
+| integration | configuration | verified fallback behavior |
+|---|---|---|
+| OpenRouter search | `OPENROUTER_WEB_SEARCH=true` | hosted web-search server tool; configured models remain a fallback chain |
+| YouTube | `YOUTUBE_API_KEY` | official Data API search + video details; skipped when the key is absent |
+| Spotify | client ID + secret | form-encoded client-credentials OAuth, then track/album/artist search |
+| News | NewsAPI and/or GNews key | APIs are tried independently; publisher RSS remains the keyless fallback |
+| Reddit | approved client ID + secret + user agent | OAuth only; disabled until all approved credentials exist |
+| Brave | `BRAVE_API_KEY` | optional; other web and subject-specific sources continue without it |
+| Translation | optional `LIBRETRANSLATE_URL` | configured LibreTranslate first, then MyMemory |
+| Stack Overflow | none | question search followed by accepted or top-voted answer retrieval |
+| GitHub, Steam, arXiv | optional GitHub token only | public official endpoints; errors degrade without fabricated results |
+
+Models never execute tools by printing markup. Retrieval happens before model
+generation, and the verifier blocks XML, JSON-like, and bracketed
+`[TOOL_CALL]` output if a model imitates an internal protocol.
+
 ## Verification (post-generation)
 
 `ai/verifier.py` compares the finished draft with the evidence:
