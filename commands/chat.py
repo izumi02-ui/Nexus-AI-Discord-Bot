@@ -24,6 +24,7 @@ from search.aggregator import aggregator
 from search.freshness import  label as freshness_label
 from utils.cooldown import cooldown
 from utils.discord_utils import send_long_message
+from utils.rich_response import send_ai_response
 from utils.logger import logger
 from utils.settings import settings
 
@@ -78,7 +79,7 @@ class ChatCommands(commands.Cog):
         report = outcome.get("report")
         verification = outcome.get("verification")
 
-        await send_long_message(interaction.followup, outcome["response"])
+        await send_ai_response(interaction.followup, outcome, interaction.user)
 
         if report is not None and verification is not None:
             await interaction.followup.send(
