@@ -22,6 +22,7 @@ def test_greeting_is_answered_by_the_model():
     assert decision["type"] == "chat"
     assert decision["tools"] == []
     assert decision["verification"] is False
+    assert decision["freshness"] == "static"
 
 
 def test_acknowledgements_do_not_trigger_a_search():
@@ -76,7 +77,6 @@ def test_current_role_holder_is_searched():
 
 def test_static_question_is_not_searched():
     for text in (
-        "explain photosynthesis",
         "write a python function that reverses a linked list",
         "do you like my new savings account?",
     ):
@@ -84,6 +84,47 @@ def test_static_question_is_not_searched():
 
         assert decision["type"] == "chat", text
         assert decision["tools"] == [], text
+
+
+def test_explanation_topic_gets_reference_evidence():
+    decision = route("explain photosynthesis")
+
+    assert decision["type"] == "search"
+    assert decision["presentation"] == "reference"
+    assert "wikipedia" in decision["tools"]
+
+
+def test_now_before_code_request_does_not_trigger_search():
+    decision = route("Now make me Python code for a task manager")
+
+    assert decision["type"] == "chat"
+    assert decision["tools"] == []
+    assert decision["verification"] is False
+
+
+def test_current_api_code_request_can_still_search():
+    decision = route("Write code for the current Discord API documentation")
+
+    assert decision["type"] == "search"
+
+
+def test_explicit_youtube_lookup_does_not_leak_as_a_model_tool_call(monkeypatch):
+    from utils.settings import settings
+
+    monkeypatch.setattr(settings, "youtube_api_key", "test-key")
+
+    decision = route("Find the Love Me song on YouTube")
+
+    assert decision["type"] == "search"
+    assert decision["tools"] == ["youtube"]
+    assert decision["force"] is True
+
+
+def test_traceback_reaches_stackoverflow_instead_of_code_chat():
+    decision = route("Python traceback: RuntimeError event loop is closed")
+
+    assert decision["type"] == "search"
+    assert "stackoverflow" in decision["tools"]
 
 
 def test_explicit_search_request_is_forced():
