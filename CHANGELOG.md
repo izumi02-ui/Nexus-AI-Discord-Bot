@@ -4,6 +4,33 @@
 
 ## Unreleased
 
+### 🐛 Fixed
+
+- Explicit YouTube, Spotify, Reddit, GitHub, Steam, arXiv, and Stack Overflow
+  lookups now route to real integrations before model generation.
+- XML and bracketed `[TOOL_CALL]` text is rejected and can no longer leak into
+  Discord replies.
+- Spotify OAuth now uses a form body and reads the real plural search response
+  containers (`tracks`, `albums`, `artists`).
+- OpenRouter live search uses the hosted server-tool request shape and keeps
+  the configured model fallback chain.
+- Stack Overflow retrieves accepted or top-voted answers instead of labeling a
+  question body as an accepted answer.
+- Gemini calls run outside the event loop; ordinary answers no longer trigger
+  an unrequested Google search.
+- Aggregated tool calls now update health counters, activating the existing
+  cooldown after repeated failures.
+- arXiv PDFs remain links instead of invalid Discord images; DuckDuckGo,
+  Spotify, and Steam artwork can now appear in reference embeds.
+- Health and local API routes can start without an AI key and report an
+  unconfigured provider; actual AI requests still return a configuration error.
+
+### ✅ Tests
+
+- Added offline regression coverage for YouTube, Spotify, Stack Overflow,
+  OpenRouter search/fallbacks, direct routing, media images, and tool-call
+  leakage.
+
 ### ✨ Added
 
 - **Conditional Discord presentation** (`utils/rich_response.py`) - short and
