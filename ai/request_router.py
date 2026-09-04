@@ -61,6 +61,19 @@ COMPUTABLE_RE = re.compile(
     r"\b(?:what is|calculate|compute|how much is|solve|convert)\b", re.IGNORECASE
 )
 
+REFERENCE_TOPIC_RE = re.compile(
+    r"\b(?:explain|explanation|tell me about|how does|why does|overview|"
+    r"architecture|working of|difference between|compare|history of|"
+    r"information about|in detail)\b",
+    re.IGNORECASE,
+)
+
+CODE_TOPIC_RE = re.compile(
+    r"\b(?:code|script|function|class|program|bot|api|html|css|javascript|"
+    r"python|java|c\+\+|replacement|source file)\b",
+    re.IGNORECASE,
+)
+
 
 class RequestRouter:
 
@@ -92,6 +105,7 @@ class RequestRouter:
             "cacheable": freshness not in {"instant"},
             "calculator": False,
             "grounded": False,
+            "presentation": "plain",
         }
 
         if not text:
@@ -180,9 +194,14 @@ class RequestRouter:
             ("/search", "/ask", "/verify")
         )
 
+        reference_topic = bool(
+            REFERENCE_TOPIC_RE.search(text) and not CODE_TOPIC_RE.search(text)
+        )
+
         should_search = (
             mode == "always"
             or forced
+            or reference_topic
             or freshness in {"instant", "short", "medium"}
             or needs_fresh_evidence(text)
         )
@@ -203,6 +222,12 @@ class RequestRouter:
 
         tools = self.select_tools(text, forced=forced, freshness=freshness)
 
+        if reference_topic:
+            wikipedia = tool_manager.get("wikipedia")
+
+            if wikipedia is not None and wikipedia.usable and "wikipedia" not in tools:
+                tools = ["wikipedia", *tools][:3]
+
         decision.update(
             type="search",
             tools=tools,
@@ -210,6 +235,7 @@ class RequestRouter:
             force=forced,
             grounded=True,
             cacheable=freshness not in {"instant"},
+            presentation="reference" if reference_topic else "plain",
         )
 
         logger.info(
