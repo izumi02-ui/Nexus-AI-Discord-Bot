@@ -1,6 +1,6 @@
 # 🌌 Project Nexus - System Design
 
-**Version:** Nexus 2.0.0-alpha.2
+**Version:** Nexus 1.3.0-alpha.V3
 
 ---
 
