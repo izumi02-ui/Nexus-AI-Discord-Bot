@@ -58,7 +58,7 @@ Every message goes through the same seven steps:
 | **Memory** | per-user conversation window, durable facts with provenance and supersede-history, user-facing `/facts` `/remember` `/forget` |
 | **Knowledge store** | verified claims with confidence, hit counts, expiry, `disputed` state, and a full change history (`knowledge_history`) |
 | **Providers** | OpenRouter, OpenAI, Gemini, Claude, Groq, DeepSeek, Mistral, Cohere, Ollama, LM Studio - capability-aware fallback with failure breakers (a rate-limited provider is cooled down, not swallowed silently) |
-| **Tools** | 23 evidence modules as separate files, each declaring its own TTL, keywords, required keys and health (15 usable with no keys) |
+| **Tools** | 23 evidence modules as separate files, each declaring its own TTL, keywords, required keys and health (14 usable with no keys) |
 | **Discord** | slash commands + prefix commands; natural no-mention DMs; server mentions and direct replies; idle presence; attachments recognised; per-user cooldowns; cog auto-loading; startup-safe `/health` endpoint for Render |
 | **Rich responses** | ordinary conversation stays plain; substantial explanations and worked solutions use a plain introduction, focused embed and plain conclusion; retrieved HTTPS reference images appear only when a source supplies one; generated code uses fenced, copy-friendly embeds and attaches a complete file when it exceeds Discord's embed limit |
 | **API** | FastAPI app mirroring the same pipeline (`/chat` `/search` `/research` `/memory` `/tools` `/models` `/health`), returning grounding metadata so a web client can show a "verified" badge too |
@@ -207,7 +207,7 @@ handled once and are not duplicated as AI conversation replies.
 
 ## Evidence sources
 
-Twenty-three tool modules in `tools/` - **15 answer with no keys at all**, and the two intentional placeholders (`ocr`, `vision`) are skipped rather than trusted. "Needs a key" is not a failure: Nexus says so, skips the source, and tells you which tools failed alongside the answer.
+Twenty-three tool modules in `tools/` - **14 answer with no keys at all**, and the two intentional placeholders (`ocr`, `vision`) are skipped rather than trusted. "Needs a key" is not a failure: Nexus says so, skips the source, and tells you which tools failed alongside the answer.
 
 | Source | Key | What it's for |
 |---|---|---|
@@ -218,16 +218,16 @@ Twenty-three tool modules in `tools/` - **15 answer with no keys at all**, and t
 | `maps` (OSM Nominatim) | - | places, addresses, distances |
 | `wikipedia` | - | stable reference, with page timestamps |
 | `news` (publisher RSS) | - | headlines with real publish dates; non-feed pages are refused |
-| `brave` / `google` / `web_search` | key | proper web results - **the biggest quality lever** |
+| `brave` / `google` / `web_search` | optional key/provider | proper web results; Brave is paid and is skipped cleanly when unset |
 | `duckduckgo` | - | Instant Answer API (HTML search is CAPTCHA-gated, so it isn't scraped) |
 | `web_scraper` | - | read a URL a user pasted, as quoted untrusted text |
 | `github` | optional | repos, issues, releases |
 | `stackoverflow` | - | real answers, accepted-first |
 | `arxiv` | - | papers with dates |
-| `reddit` | optional | community reports - labelled as such, never as fact |
+| `reddit` | approved OAuth credentials | community reports labelled as low-authority; unidentified public JSON access is not used |
 | `steam` | - | prices and store pages |
 | `spotify` / `youtube` | key | tracks, videos |
-| `translator` | - | LibreTranslate/MyMemory |
+| `translator` | - | optional self-hosted LibreTranslate, otherwise free MyMemory fallback |
 | `file_reader` | opt-in | plain-text files inside `data/uploads` only |
 | `ocr` / `vision` | - | **placeholders, `implemented = False`** - skipped by the pipeline, reported as unavailable |
 
