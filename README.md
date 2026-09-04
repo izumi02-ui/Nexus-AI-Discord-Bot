@@ -1,10 +1,10 @@
-# 🌌 Project Nexus
+# 馃寣 Project Nexus
 
 **An AI companion for Discord that would rather say *"I could not verify that"* than guess.**
 
 It runs on free or local models, and the guarantee comes from the pipeline around the model - not from the model itself.
 
-`Nexus 2.0.0-alpha.2` · Python 3.11 · discord.py · FastAPI · SQLite
+`Nexus 2.0.0-alpha.2` 路 Python 3.11 路 discord.py 路 FastAPI 路 SQLite
 
 ---
 
@@ -29,16 +29,15 @@ It runs on free or local models, and the guarantee comes from the pipeline aroun
 
 ```
 you: who is the prime minister of india?
-nexus: Shekhar Kumar was sworn in as prime minister on 9 June 2026, following
-       the NDA's victory in the 2026 general election.
+nexus: [Answers with the name and date found in the live evidence.]
        -# Sources
-       -# BBC: <https://...> · The Hindu: <https://...>
-       -# ⚙️ verified · 2 domains · freshness: today · 1.9s
+       -# Source A: <https://...> 路 Source B: <https://...>
+       -# 鈿欙笍 verified 路 2 domains 路 freshness: today 路 1.9s
 ```
 
 Every message goes through the same seven steps:
 
-**route → recall → retrieve → compose → answer → verify → learn**
+**route 鈫� recall 鈫� retrieve 鈫� compose 鈫� answer 鈫� verify 鈫� learn**
 
 1. **route** - does this even need looking up? A price does; "why is the sky blue" does not.
 2. **recall** - has Nexus already verified something that answers it?
@@ -105,16 +104,16 @@ Rules the pipeline follows:
 ### 2. Switch live, without restarting
 
 ```
-/nexus provider            → list providers, availability, model, breaker state
-/nexus provider groq       → switch for the rest of this session
-/nexus provider reset      → clear failure counters
-/nexus models              → re-read catalogues and repair model ids
-/nexus status              → what is answering right now, and how grounded it is being
+/nexus provider            鈫� list providers, availability, model, breaker state
+/nexus provider groq       鈫� switch for the rest of this session
+/nexus provider reset      鈫� clear failure counters
+/nexus models              鈫� re-read catalogues and repair model ids
+/nexus status              鈫� what is answering right now, and how grounded it is being
 ```
 
 ### 3. Change the personality
 
-`prompts/` - loaded per request, in order: `base.txt` → `personality.txt` → `creator.txt` → `accuracy.txt`, then a runtime block generated from the live process (clock, version, provider, tool inventory).
+`prompts/` - loaded per request, in order: `base.txt` 鈫� `personality.txt` 鈫� `creator.txt` 鈫� `accuracy.txt`, then a runtime block generated from the live process (clock, version, provider, tool inventory).
 
 ### 4. Add a brand-new agent (one file + two lines)
 
@@ -167,10 +166,10 @@ class MyAgentProvider(BaseProvider):
 ```
 
 ```python
-# ai/provider_manager.py  → inside _register()
+# ai/provider_manager.py  鈫� inside _register()
 self._add("myagent", MyAgentProvider)
 
-# ai/provider_manager.py  → QUALITY_ORDER (where it sits in the fallback chain)
+# ai/provider_manager.py  鈫� QUALITY_ORDER (where it sits in the fallback chain)
 QUALITY_ORDER = [..., "myagent", "ollama", "lmstudio"]
 ```
 
@@ -190,13 +189,13 @@ That's all: it appears in `/nexus provider`, participates in failover, is health
 | `/search <query> [tool]` | the raw evidence, before any model touches it |
 | `/sources` | what Nexus' last answer to you was built on |
 | `/verify <claim>` | checks one statement live: supported / only-one-place / sources disagree |
-| `/remember` · `/forget` · `/facts` | control over what it keeps about you (`/forget all` wipes it) |
-| `/tools` · `/version` · `/ping` | which sources are configured · which build is running · how fast |
+| `/remember` 路 `/forget` 路 `/facts` | control over what it keeps about you (`/forget all` wipes it) |
+| `/tools` 路 `/version` 路 `/ping` | which sources are configured 路 which build is running 路 how fast |
 | `/nexus status` | provider, grounded rate, cache, knowledge store, updater state |
 | `/nexus reverify [topic]` | re-check stored knowledge right now |
 | `/nexus accuracy [preset]` | `strict` / `balanced` / `fast` / `offline`, or fine-grained flags |
-| `/nexus tools` · `/nexus models` | per-tool health and cooldowns · re-read provider model lists |
-| `/nexus provider` · `/nexus knowledge` · `/nexus start-updating` | rotate providers · inspect the store · run a cycle |
+| `/nexus tools` 路 `/nexus models` | per-tool health and cooldowns 路 re-read provider model lists |
+| `/nexus provider` 路 `/nexus knowledge` 路 `/nexus start-updating` | rotate providers 路 inspect the store 路 run a cycle |
 
 Prefix equivalents `!ai`, `!memory`, `!status` work where slash commands don't. Mentioning the bot behaves like `/ask`; so does any DM.
 
@@ -251,12 +250,12 @@ Decided in `config.py`, overridable by environment variables. Nothing hidden, no
 SEARCH_MODE=auto               # auto | always | never
 SEARCH_TIMEOUT=18              # deadline for the whole evidence phase
 MAX_SOURCES=6
-MIN_SOURCES_FOR_GROUNDING=1    # independent domains needed to call it verified
+MIN_SOURCES_FOR_GROUNDING=2    # independent domains needed to call it verified
 VERIFICATION_ENABLED=true
 AUTO_RETRY_WITH_SEARCH=true    # one repair pass when an answer cannot stand
-REFUSE_WHEN_UNVERIFIED=false   # prefer refusal over guessing a "right now" fact
+REFUSE_WHEN_UNVERIFIED=true    # prefer refusal over guessing a "right now" fact
 CITATION_MODE=auto             # auto | footer | inline | off
-OPENROUTER_WEB_SEARCH=false    # let the provider ground itself (paid per request)
+OPENROUTER_WEB_SEARCH=true     # live search for fresh questions; may use credits
 
 # self-update
 SELF_UPDATE_ENABLED=true
@@ -286,7 +285,7 @@ Full annotated list: [`.env.example`](.env.example). Reasoning per knob: [`docs/
 
 Ordered by accuracy/utility per unit of work. **None of these exist yet** - the tools marked "placeholder" above are the stubs they grow out of, and the pipeline already skips a stub instead of trusting it, which is why adding them is additive rather than a rewrite.
 
-### 1. Image understanding (vision) — next up
+### 1. Image understanding (vision) 鈥� next up
 
 - **User sees:** "what's in this screenshot?" answered with the UI text, the error, the chart's numbers - and which part is read vs inferred.
 - **How:** providers that support images get the bytes (`capabilities.vision`); `ai/engine.py` already passes attachments and refuses to guess when no vision provider is active. The missing piece is the multimodal message shape per provider.
@@ -301,7 +300,7 @@ Ordered by accuracy/utility per unit of work. **None of these exist yet** - the 
 
 ### 3. PDF: read, quote, and view
 
-- **User sees:** `/nexus pdf <url|attachment>` → per-page summary with page-number citations ("p.4: the method reports a 12% gain"), plus a rendered preview link; ask follow-ups grounded in that document.
+- **User sees:** `/nexus pdf <url|attachment>` 鈫� per-page summary with page-number citations ("p.4: the method reports a 12% gain"), plus a rendered preview link; ask follow-ups grounded in that document.
 - **How:** new `tools/pdf_reader.py`: extract text per page, index it as evidence so `SearchReport` citations point at `doc.pdf#page=4`, feed the ranked pages through the same compose/verify path.
 - **Depends on:** the **first new dependency** in this project (`pypdf` for text; optional `pdf2image` + `poppler` for actual rendered previews).
 - **Guardrail:** text is quoted-untrusted like the web scraper, size and page caps, no execution of embedded JS, and PDFs from the internet are labelled as unverified single-source documents.
@@ -315,21 +314,21 @@ Ordered by accuracy/utility per unit of work. **None of these exist yet** - the 
 
 ### 5. Image generation
 
-- **User sees:** `/imagine a lighthouse in a storm, watercolour` → an image posted back with the prompt it used and which provider/model made it.
+- **User sees:** `/imagine a lighthouse in a storm, watercolour` 鈫� an image posted back with the prompt it used and which provider/model made it.
 - **How:** `capabilities.image_generation` already exists for exactly this; add `tools/image_gen.py` + a `/generate` command, sending the result as `discord.File`.
 - **Depends on:** a provider key that generates (OpenAI images, Gemini/Imagen, Stability, Fal). A keyless path exists (e.g. `https://image.pollinations.ai/prompt/...`) but it returned HTTP 500 when checked from this environment, so **treat it as unverified** and don't build the default path on it.
 - **Guardrail:** no public-figure or real-person likenesses, no sexual/violent content, visible provenance that it is AI-generated, and a rate limit separate from chat so one user cannot burn the quota.
 
 ### 6. Animation: images and video to GIF
 
-- **User sees:** `/gif from <url-or-attachment> 3s` → a small looped GIF; or "make these 4 frames into a gif".
-- **How:** `tools/media_render.py`. Still images → GIF is doable with **Pillow, already a dependency** (resize, frame delay, palette quantisation, size cap). Video → GIF needs `ffmpeg`, which is a system binary, so it must degrade to a clear "ffmpeg is not installed here" rather than fail silently - and clip sources must be user-supplied bytes or a licensed source, not scraped downloads.
-- **Depends on:** Pillow (have) · `ffmpeg` binary (optional, host-level) · *not* `yt-dlp`: pulling media out of platforms is a terms-of-service problem, so plan around user-uploaded files.
+- **User sees:** `/gif from <url-or-attachment> 3s` 鈫� a small looped GIF; or "make these 4 frames into a gif".
+- **How:** `tools/media_render.py`. Still images 鈫� GIF is doable with **Pillow, already a dependency** (resize, frame delay, palette quantisation, size cap). Video 鈫� GIF needs `ffmpeg`, which is a system binary, so it must degrade to a clear "ffmpeg is not installed here" rather than fail silently - and clip sources must be user-supplied bytes or a licensed source, not scraped downloads.
+- **Depends on:** Pillow (have) 路 `ffmpeg` binary (optional, host-level) 路 *not* `yt-dlp`: pulling media out of platforms is a terms-of-service problem, so plan around user-uploaded files.
 - **Guardrail:** output size/duration caps, ephemeral temp files, and content moderation before posting to a public channel.
 
 ### 7. Retrieval upgrades that make all of the above better
 
-- `BRAVE_API_KEY` / `GEMINI_API_KEY` wired into a labeled "eval set" (`tests/` question → expected source), so ranking changes are measured, not eyeballed.
+- `BRAVE_API_KEY` / `GEMINI_API_KEY` wired into a labeled "eval set" (`tests/` question 鈫� expected source), so ranking changes are measured, not eyeballed.
 - Per-tool timeouts (weather 4 s, Wikipedia 8 s) and early exit once two domains agree.
 - `/nexus history` - the knowledge change log already exists in `knowledge_history`; nobody can read it yet.
 - Scheduled digests: "the thing you asked about changed" - watchlist, history and diffing are all built already.
@@ -358,7 +357,7 @@ python bot.py
 <details>
 <summary>Discord setup</summary>
 
-1. [Developer Portal](https://discord.com/developers/applications) → New Application → Bot.
+1. [Developer Portal](https://discord.com/developers/applications) 鈫� New Application 鈫� Bot.
 2. Enable **Message Content** and **Server Members** intents (privileged).
 3. Copy the token into `.env` as `DISCORD_TOKEN`.
 4. Invite with `bot` + `applications.commands` scopes, `Send Messages`, `Read Message History`, `Embed Links`.
@@ -375,7 +374,7 @@ python bot.py
 
 ```bash
 pip install -r requirements-dev.txt
-pytest -q          # 125 tests, ~3 s, fully offline
+pytest -q          # 128 tests, fully offline
 ```
 
 `tests/conftest.py` blocks outbound HTTP and points the database at a temp file, so a red test means a **policy regression**, not a flaky API. Coverage: routing decisions, freshness classification, ranking and cross-check, the verifier's link/number/excuse rules, prompt assembly and budget, the knowledge store, cache staleness, the updater's confirm/correct/refuse policy, the API shape, Discord output safety.
@@ -392,15 +391,15 @@ tools/     one module per external source; TTLs, keywords, health, honest failur
 core/      updater: the self-update cycle (runtime facts, probes, re-verify, maintenance)
 database/  SQLite: profiles, memory, facts, verified knowledge + history, tool health
 commands/  Discord cogs: chat, memory, admin, utility
-prompts/   base · personality · creator · accuracy  (loaded per request)
+prompts/   base 路 personality 路 creator 路 accuracy  (loaded per request)
 api/       FastAPI surface over the same engine
 utils/     settings, prompt loader, formatting, time, permissions, cooldowns, calculator
 tests/     offline suite
-docs/      ARCHITECTURE · ACCURACY · ROADMAP · SYSTEM_DESIGN · VISION
+docs/      ARCHITECTURE 路 ACCURACY 路 ROADMAP 路 SYSTEM_DESIGN 路 VISION
 data/      the SQLite store (git-ignored)
 ```
 
-Deeper: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (request path, layer rules, failure model) · [`docs/ACCURACY.md`](docs/ACCURACY.md) (policy and knobs) · [`docs/ROADMAP.md`](docs/ROADMAP.md) (what's next, in build order).
+Deeper: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (request path, layer rules, failure model) 路 [`docs/ACCURACY.md`](docs/ACCURACY.md) (policy and knobs) 路 [`docs/ROADMAP.md`](docs/ROADMAP.md) (what's next, in build order).
 
 ---
 
@@ -414,6 +413,6 @@ Deeper: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (request path, layer rule
 
 ---
 
-Creator: **Izumi** (Rohit / IZ) · Special user: **Ash** (Ashey)
+Creator: **Izumi** (Rohit / IZ) 路 Special user: **Ash** (Ashey)
 
 *Build once. Extend forever. Never assert what you cannot check.*
