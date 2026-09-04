@@ -36,6 +36,15 @@
 
 ### 🐛 Fixed
 
+- GNews now uses its current `/api/v4/search` endpoint and `apikey` parameter,
+  correctly reads nested publisher metadata and images, and is still attempted
+  when NewsAPI is configured but empty, unavailable or out of quota.
+- Reddit is now OAuth-only: it remains unavailable until all approved
+  credentials are configured, obtains and caches an application token, and no
+  longer attempts unidentified public JSON requests.
+- Missing Brave and LibreTranslate configuration now matches documented
+  behaviour: Brave is simply skipped, while translation falls back to
+  MyMemory.
 - Code requests containing conversational words such as "now" no longer trigger
   unnecessary web searches or collide with weather, currency and other exact
   tools. Explicit requests for current APIs, releases or documentation still
