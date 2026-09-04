@@ -13,9 +13,15 @@ not by how interesting it is.
 
 - [ ] Point the `news` tool at real publisher RSS feeds end to end and drop the
       HTML-page "feed" (it parses today, but the source is fragile).
-- [ ] Verify the live path with a real provider: `engine.respond()` has run
-      end-to-end offline against stub providers and fixtures; it has never been
-      exercised against a real model in this environment.
+- [x] Verify the live Discord path with OpenRouter on Render, including provider
+      startup, mention replies, DMs and rich code output.
+- [x] Make Render health checks startup-safe when Discord latency is not yet a
+      finite number.
+- [x] Add conditional rich presentation without converting ordinary chat into
+      embeds: structured explanations, worked solutions, retrieved reference
+      images, and complete-file delivery for oversized generated code.
+- [x] Keep normal code-generation requests out of unnecessary live search while
+      preserving search for current APIs, releases and documentation.
 - [ ] Register the model catalog refresh on startup (currently run by the
       updater cycle and `/nexus models` only).
 
