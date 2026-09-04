@@ -363,6 +363,18 @@ class RequestRouter:
 
         exact_only = bool(chosen) and set(chosen) <= self.SELF_SUFFICIENT_TOOLS
 
+        # Recent questions benefit from publisher feeds even when the user did
+        # not literally say "news" (for example "upcoming PS6 information").
+        news = tool_manager.get("news")
+        if (
+            freshness in {"short", "medium"}
+            and not exact_only
+            and news is not None
+            and news.usable
+            and "news" not in chosen
+        ):
+            chosen.append("news")
+
         if not chosen or (forced and not exact_only):
             chosen = self._with_general(chosen)
         elif freshness in {"instant", "short"} and not exact_only:
@@ -387,7 +399,9 @@ class RequestRouter:
             if (tool := tool_manager.get(name)) and tool.usable and name not in chosen
         ]
 
-        return chosen + available[:1]
+        # Two general sources allow corroboration and keep one empty/free API
+        # from collapsing the whole answer.
+        return chosen + available[:2]
 
     def _order(self, chosen: list[str], reasons: dict) -> list[str]:
         from tools.manager import SEARCH_TIER
