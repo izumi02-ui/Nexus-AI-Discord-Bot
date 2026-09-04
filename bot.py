@@ -79,6 +79,7 @@ class NexusBot(commands.Bot):
             intents=intents,
             help_command=commands.MinimalHelpCommand(),
             case_insensitive=True,
+            status=discord.Status.idle,
             activity=discord.Activity(
                 type=discord.ActivityType.listening,
                 name="/ask  •  mention me",
