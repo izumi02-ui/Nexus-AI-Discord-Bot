@@ -74,6 +74,10 @@ class DuckDuckGoTool(BaseTool):
         abstract = HTML_RE.sub("", data.get("AbstractText") or "").strip()
         abstract_url = data.get("AbstractURL")
         source = data.get("AbstractSource") or "DuckDuckGo"
+        image = data.get("Image") or None
+
+        if image and image.startswith("/"):
+            image = "https://duckduckgo.com" + image
 
         if abstract:
             results.append(
@@ -84,9 +88,9 @@ class DuckDuckGoTool(BaseTool):
                     url=abstract_url,
                     confidence=0.9,
                     category=data.get("Topic") or "general",
+                    image=image,
                     metadata={
                         "answer_type": data.get("AnswerType"),
-                        "image": data.get("Image"),
                     },
                 ).stamp(tool=self.name)
             )
