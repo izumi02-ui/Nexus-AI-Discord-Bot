@@ -177,10 +177,13 @@ class ProviderManager:
             return provider
 
         if not self.providers:
+            # Keep diagnostics, /health and local-only routes importable. A
+            # chat request still raises the explicit configuration error in
+            # ask_with_info(), but the process can boot far enough to explain
+            # what is missing.
+            logger.error("No AI providers are configured.")
 
-            raise RuntimeError(
-                "No AI providers available."
-            )
+            return None
 
         # Pick the best available provider rather than an arbitrary one.
         for name in QUALITY_ORDER:
@@ -390,8 +393,9 @@ class ProviderManager:
         capability: str,
     ) -> bool:
 
-        return self.provider.supports(
-            capability
+        return bool(
+            self.provider
+            and self.provider.supports(capability)
         )
 
     def provider_supporting(self, capability: str):
@@ -415,23 +419,28 @@ class ProviderManager:
 
     @property
     def name(self):
-
-        return self.provider.name
+        return self.provider.name if self.provider else "Unconfigured"
 
     @property
     def model(self):
-
-        return self.provider.model
+        return self.provider.model if self.provider else "none"
 
     @property
     def info(self):
+        if self.provider:
+            return self.provider.info()
 
-        return self.provider.info()
+        return {
+            "name": "Unconfigured",
+            "model": "none",
+            "available": False,
+            "capabilities": {},
+        }
 
     def status(self) -> dict:
         return {
-            "active": provider_key(self.provider),
-            "model": self.provider.model,
+            "active": provider_key(self.provider) or None,
+            "model": self.model,
             "available": self.available,
             "last_answer": self.last,
             "breakers": {
