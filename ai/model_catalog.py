@@ -232,7 +232,7 @@ async def refresh(*, provider=None) -> dict:
             if changed:
                 summary["changed"].append(changed)
         elif key in {"groq", "openai", "deepseek", "mistral"}:
-            changed = await _repair_single(key, ids)
+            changed = await _repair_single(key, ids, models)
 
             if changed:
                 summary["changed"].append(changed)
@@ -324,7 +324,11 @@ async def _repair_openrouter(ids: set[str], models: list[dict]) -> dict | None:
     }
 
 
-async def _repair_single(key: str, ids: set[str]) -> dict | None:
+async def _repair_single(
+    key: str,
+    ids: set[str],
+    models: list[dict],
+) -> dict | None:
     from ai.provider_manager import provider_manager
 
     provider = provider_manager.providers.get(key)
