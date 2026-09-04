@@ -450,6 +450,7 @@ class AIEngine:
                 report=report,
                 freshness=route["freshness"],
                 knowledge_rows=remembered,
+                allow_retry=False,
             )
 
             verification.needs_retry = False
