@@ -17,6 +17,7 @@ every subsystem here is optional and reports its own state instead.
 
 import asyncio
 import importlib
+import math
 import os
 import pkgutil
 import traceback
@@ -183,6 +184,19 @@ async def load_cogs(target: commands.Bot) -> tuple[int, list[str]]:
 # Render health server
 # ============================================
 
+def latency_ms(value) -> int | None:
+    """Return a JSON-safe Discord latency during startup and reconnects."""
+    try:
+        milliseconds = float(value) * 1000
+    except (TypeError, ValueError):
+        return None
+
+    if not math.isfinite(milliseconds):
+        return None
+
+    return round(milliseconds)
+
+
 async def health_check(request):
     health = engine.health()
 
@@ -203,7 +217,7 @@ async def health_check(request):
                 "enabled": bool(getattr(settings, "self_update_enabled", True)),
                 "interval_seconds": int(settings.self_update_interval),
             },
-            "latency_ms": round(bot.latency * 1000),
+            "latency_ms": latency_ms(bot.latency),
         }
     )
 
