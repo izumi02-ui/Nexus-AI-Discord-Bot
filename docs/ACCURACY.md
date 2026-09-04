@@ -118,6 +118,15 @@ Admin commands (creator only): `/nexus accuracy`, `/nexus status`,
   are CAPTCHA-gated, so the fallback engine is the Instant Answer API plus
   Wikipedia; adding `BRAVE_API_KEY` or `GEMINI_API_KEY` materially improves
   coverage of "what happened today" questions.
+- Brave is optional and paid-plan based. If it is unset, provider-native search,
+  Google grounding when configured, DuckDuckGo, Wikipedia and specialised
+  sources remain in the search tier.
+- Reddit is disabled until an approved OAuth client ID, secret and descriptive
+  user agent are all present. Nexus does not bypass a missing approval through
+  anonymous JSON endpoints; Reddit results remain low-authority community
+  reports even when enabled.
+- LibreTranslate is an optional self-hosted preference. An empty URL uses the
+  free MyMemory fallback instead of disabling translation.
 - Nexus verifies *against its sources*. If every source in a search result page
   repeats the same wrong number, Nexus reports that number as corroborated.
   This is why disagreements are surfaced instead of averaged.
