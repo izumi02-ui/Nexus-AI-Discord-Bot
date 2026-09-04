@@ -2,7 +2,55 @@
 
 ---
 
-## Nexus 1.3.0-alpha.V3
+## Unreleased
+
+### ✨ Added
+
+- **Conditional Discord presentation** (`utils/rich_response.py`) - short and
+  conversational answers remain normal messages. Detailed explanations and
+  worked solutions use a plain introduction, one or more focused embeds, and a
+  plain conclusion. The requester line remains outside the embed.
+- **Reference images** - explanation embeds may show the first relevant HTTPS
+  image supplied by retrieved evidence. Nexus never invents an image URL, and
+  Wikipedia results now expose their page thumbnail when one exists.
+- **Copy-friendly code delivery** - fenced code becomes syntax-labelled Discord
+  embeds, multiple blocks become numbered parts, and oversized replacements are
+  attached as complete files instead of being silently truncated.
+- **Natural Discord conversations** - every DM works without a mention; tagged
+  DMs still work; server messages work through either a mention or a direct
+  reply to Nexus.
+- **Complete environment templates** - `.env.example` now documents all 68
+  supported settings once, including direct and local providers, search tools,
+  accuracy controls, memory, file access, Render and logging.
+
+### 🛠 Changed
+
+- Merged the original Nexus identity rules with a clearer professional response
+  contract in `prompts/base.txt`: lead with the answer, explain connections,
+  use examples and limits where useful, fence generated code, and provide full
+  files when a replacement is requested.
+- Nexus now starts with Discord's idle presence and the activity
+  `/ask  •  mention me`.
+- Explanations and solutions are more detailed without forcing simple chat into
+  an embed or adding a decorative `Response` heading.
+
+### 🐛 Fixed
+
+- Code requests containing conversational words such as "now" no longer trigger
+  unnecessary web searches or collide with weather, currency and other exact
+  tools. Explicit requests for current APIs, releases or documentation still
+  search normally.
+- A provider refusal or plain-text failure can no longer be mislabeled as
+  `Generated Implementation`; code presentation now requires fenced code or a
+  recognisable code shape.
+- OpenRouter tool-call markup can no longer leak directly into Discord when a
+  model requests live search.
+- Render health checks no longer crash during Discord startup when
+  `bot.latency` is `NaN`; the endpoint returns JSON `null` until latency exists.
+- DM prefix commands are no longer answered twice by both the command handler
+  and the conversational message handler.
+
+## Nexus 2.0.0-alpha.2
 **Release Date:** 2026-09-03
 
 The accuracy release. Nexus now decides *when* it is allowed to answer, checks
