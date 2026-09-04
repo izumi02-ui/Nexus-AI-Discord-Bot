@@ -227,7 +227,7 @@ SEARCH_TIMEOUT = float(
 #: How many sources to collect, and how many independent ones are required
 #: before Nexus may state something as verified fact.
 MAX_SOURCES = int(os.getenv("MAX_SOURCES", "6"))
-MIN_SOURCES_FOR_GROUNDING = int(os.getenv("MIN_SOURCES_FOR_GROUNDING", "1"))
+MIN_SOURCES_FOR_GROUNDING = int(os.getenv("MIN_SOURCES_FOR_GROUNDING", "2"))
 
 #: Compare the finished answer against the evidence before sending it.
 VERIFICATION_ENABLED = _flag("VERIFICATION_ENABLED", "true")
@@ -241,12 +241,11 @@ CITATION_MODE = os.getenv("CITATION_MODE", "auto").lower()
 
 #: For instant/short freshness questions, refuse to answer when nothing was
 #: verified, rather than guessing.
-REFUSE_WHEN_UNVERIFIED = _flag("REFUSE_WHEN_UNVERIFIED", "false")
+REFUSE_WHEN_UNVERIFIED = _flag("REFUSE_WHEN_UNVERIFIED", "true")
 
-#: Let the default provider ground itself with OpenRouter's web plugin.
-#: Costs extra per request on paid models, so it is opt-in; Nexus' own search
-#: tools are used when this is off.
-OPENROUTER_WEB_SEARCH = _flag("OPENROUTER_WEB_SEARCH", "false")
+#: Let OpenRouter supply live search evidence for fresh questions. This can
+#: consume OpenRouter credits; set it to false to use only Nexus' keyless tools.
+OPENROUTER_WEB_SEARCH = _flag("OPENROUTER_WEB_SEARCH", "true")
 
 OPENROUTER_SEARCH_RESULTS = int(os.getenv("OPENROUTER_SEARCH_RESULTS", "5"))
 
