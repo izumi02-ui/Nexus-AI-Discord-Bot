@@ -7,7 +7,7 @@ Responsible for creating, loading,
 and updating user profiles.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from database.database import database
 from database.user_profile import UserProfile
@@ -79,7 +79,7 @@ class ProfileManager:
                 profile.display_name,
                 profile.role,
                 profile.created_at,
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
                 profile.total_messages
             )
         )
