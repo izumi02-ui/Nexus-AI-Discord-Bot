@@ -57,7 +57,7 @@ class ArxivTool(BaseTool):
 
         try:
             xml = await fetch_text(
-                "http://export.arxiv.org/api/query",
+                "https://export.arxiv.org/api/query",
                 params={
                     "search_query": text,
                     "start": 0,
@@ -113,7 +113,8 @@ class ArxivTool(BaseTool):
                 category=(
                     getattr(entry, "arxiv_primary_category", {}) or {}
                 ).get("term"),
-                image=pdf,
+                # A PDF is a reference link, not a Discord-compatible image.
+                image=None,
                 metadata={
                     "authors": authors,
                     "pdf": pdf,
