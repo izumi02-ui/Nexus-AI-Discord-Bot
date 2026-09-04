@@ -14,7 +14,7 @@ import time
 from typing import List
 
 from search.search_result import SearchResult
-from tools._http import FetchError, fetch, fetch_json
+from tools._http import FetchError, fetch_json
 from tools.base import BaseTool
 from utils.logger import logger
 from utils.settings import settings
@@ -59,24 +59,25 @@ class SpotifyTool(BaseTool):
             ).decode()
 
             try:
-                response = await fetch(
+                payload = await fetch_json(
                     "https://accounts.spotify.com/api/token",
                     method="post",
                     headers={
                         "Authorization": f"Basic {credentials}",
                         "Content-Type": "application/x-www-form-urlencoded",
                     },
-                    params={"grant_type": "client_credentials"},
+                    data_body={"grant_type": "client_credentials"},
                     timeout=12,
                 )
             except FetchError as error:
                 logger.warning("Spotify auth failed: %s", error)
-                return None
-
-            payload = response.json()
+                raise
 
             _TOKEN["value"] = payload.get("access_token")
             _TOKEN["expires_at"] = time.time() + int(payload.get("expires_in", 3600))
+
+            if not _TOKEN["value"]:
+                raise FetchError("Spotify OAuth response did not include an access token.")
 
             return _TOKEN["value"]
 
@@ -110,8 +111,12 @@ class SpotifyTool(BaseTool):
 
         results: List[SearchResult] = []
 
-        for kind in ("track", "album", "artist"):
-            items = ((data or {}).get(kind) or {}).get("items") or []
+        for kind, container in (
+            ("track", "tracks"),
+            ("album", "albums"),
+            ("artist", "artists"),
+        ):
+            items = ((data or {}).get(container) or {}).get("items") or []
 
             for item in items[:3]:
                 if not item:
@@ -151,11 +156,26 @@ class SpotifyTool(BaseTool):
                         )
                     )
 
+                image_rows = (
+                    (item.get("album") or {}).get("images")
+                    if kind == "track"
+                    else item.get("images")
+                ) or []
+                image = next(
+                    (
+                        row.get("url")
+                        for row in image_rows
+                        if isinstance(row, dict) and row.get("url")
+                    ),
+                    None,
+                )
+
                 result = SearchResult(
                     title=f"{kind.title()}: {name}",
                     content=content,
                     source="Spotify",
                     url=external,
+                    image=image,
                     confidence=0.95,
                     category="music",
                     metadata={"spotify_id": item.get("id"), "kind": kind},
