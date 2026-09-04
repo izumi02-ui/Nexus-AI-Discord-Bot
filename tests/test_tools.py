@@ -278,3 +278,149 @@ def test_reddit_uses_oauth_and_reuses_its_token(monkeypatch):
     assert sum(url.endswith("/api/v1/access_token") for url, _ in calls) == 1
     assert first[0].source == "Reddit"
     assert second[0].metadata["comments"] == 7
+
+
+def test_spotify_uses_form_oauth_and_plural_search_containers(monkeypatch):
+    from tools import spotify as spotify_module
+
+    calls = []
+
+    async def fake_fetch(url, **kwargs):
+        calls.append((url, kwargs))
+
+        if url.endswith("/api/token"):
+            return {"access_token": "spotify-token", "expires_in": 3600}
+
+        return {
+            "tracks": {
+                "items": [{
+                    "id": "track-1",
+                    "name": "Love Me",
+                    "artists": [{"name": "Example Artist"}],
+                    "album": {
+                        "name": "Example Album",
+                        "images": [{"url": "https://img.example/cover.jpg"}],
+                    },
+                    "external_urls": {"spotify": "https://open.spotify.com/track/1"},
+                }]
+            },
+            "albums": {"items": []},
+            "artists": {"items": []},
+        }
+
+    monkeypatch.setattr(spotify_module.settings, "spotify_client_id", "client")
+    monkeypatch.setattr(spotify_module.settings, "spotify_client_secret", "secret")
+    monkeypatch.setattr(spotify_module, "fetch_json", fake_fetch)
+    spotify_module._TOKEN.update(value=None, expires_at=0.0)
+
+    results = asyncio.run(spotify_module.SpotifyTool().execute("find Love Me song"))
+
+    assert calls[0][1]["data_body"] == {"grant_type": "client_credentials"}
+    assert "params" not in calls[0][1]
+    assert calls[1][1]["params"]["type"] == "track,album,artist"
+    assert results[0].title == "Track: Love Me"
+    assert results[0].image == "https://img.example/cover.jpg"
+
+
+def test_stackoverflow_fetches_real_answers_not_only_question_text(monkeypatch):
+    from tools import stackoverflow as stackoverflow_module
+
+    calls = []
+
+    async def fake_fetch(url, **kwargs):
+        calls.append((url, kwargs))
+
+        if url.endswith("/answers"):
+            return {"items": [{
+                "question_id": 42,
+                "answer_id": 99,
+                "body": "<p>Use <code>await task</code>.</p>",
+                "score": 17,
+                "is_accepted": True,
+            }]}
+
+        return {"items": [{
+            "question_id": 42,
+            "title": "How do I await a task?",
+            "body": "<p>This is the question.</p>",
+            "link": "https://stackoverflow.com/questions/42/example",
+            "creation_date": 123,
+            "score": 4,
+            "answer_count": 2,
+            "tags": ["python", "asyncio"],
+            "view_count": 100,
+        }]}
+
+    monkeypatch.setattr(stackoverflow_module, "fetch_json", fake_fetch)
+
+    results = asyncio.run(
+        stackoverflow_module.StackOverflowTool().execute(
+            "Python RuntimeError event loop is closed"
+        )
+    )
+
+    assert calls[1][0].endswith("/questions/42/answers")
+    assert "Accepted answer: Use await task ." in results[0].content
+    assert results[0].metadata["is_accepted"] is True
+    assert results[0].metadata["answer_id"] == 99
+
+
+def test_duckduckgo_relative_image_is_safe_for_discord(monkeypatch):
+    from tools import duckduckgo as duckduckgo_module
+
+    async def fake_fetch(*args, **kwargs):
+        return {
+            "Heading": "Example",
+            "AbstractText": "A useful factual summary.",
+            "AbstractURL": "https://example.com",
+            "Image": "/i/example.png",
+        }
+
+    monkeypatch.setattr(duckduckgo_module, "fetch_json", fake_fetch)
+
+    result = asyncio.run(duckduckgo_module.DuckDuckGoTool().execute("Example"))[0]
+
+    assert result.image == "https://duckduckgo.com/i/example.png"
+
+
+def test_youtube_uses_official_search_and_video_endpoints(monkeypatch):
+    from tools import youtube as youtube_module
+
+    calls = []
+
+    async def fake_fetch(url, **kwargs):
+        calls.append((url, kwargs))
+
+        if url.endswith("/search"):
+            return {"items": [{
+                "id": {"videoId": "abc123"},
+                "snippet": {
+                    "title": "Love Me — Official Video",
+                    "description": "Official upload.",
+                    "channelTitle": "Example Artist",
+                    "publishedAt": "2026-09-01T10:00:00Z",
+                    "thumbnails": {
+                        "medium": {"url": "https://img.youtube.com/abc123.jpg"}
+                    },
+                },
+            }]}
+
+        return {"items": [{
+            "id": "abc123",
+            "statistics": {"viewCount": "1234", "likeCount": "100"},
+            "contentDetails": {"duration": "PT3M20S"},
+        }]}
+
+    monkeypatch.setattr(youtube_module.settings, "youtube_api_key", "youtube-key")
+    monkeypatch.setattr(youtube_module, "fetch_json", fake_fetch)
+
+    results = asyncio.run(
+        youtube_module.YouTubeTool().execute("Find Love Me on YouTube")
+    )
+
+    assert calls[0][0] == "https://www.googleapis.com/youtube/v3/search"
+    assert calls[0][1]["params"]["key"] == "youtube-key"
+    assert calls[0][1]["params"]["type"] == "video"
+    assert calls[1][0] == "https://www.googleapis.com/youtube/v3/videos"
+    assert results[0].url == "https://www.youtube.com/watch?v=abc123"
+    assert results[0].thumbnail.endswith("abc123.jpg")
