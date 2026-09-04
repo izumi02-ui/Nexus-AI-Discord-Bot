@@ -34,7 +34,11 @@ URL_RE = re.compile(r"https?://[^\s)>\]]+", re.IGNORECASE)
 # of returning an answer.  Nexus does retrieval before the model call, so this
 # markup is never useful to a user and must never reach Discord.
 TOOL_PROTOCOL_RE = re.compile(
-    r"</?(?:tool_call|arg_key|arg_value|function_call|function)[^>]*>",
+    r"(?:"
+    r"</?(?:tool_call|arg_key|arg_value|function_call|function)[^>]*>"
+    r"|\[\s*/?\s*(?:tool[_ -]?call|function[_ -]?call)\s*\]"
+    r"|(?:^|\n)\s*(?:tool[_ -]?call|function[_ -]?call)\s*[:=]"
+    r")",
     re.IGNORECASE,
 )
 
@@ -560,7 +564,7 @@ class AnswerVerifier:
             "part you cannot confirm. Do not mention your training data, and "
             "do not cite any link that is not written above. Return only the "
             "final natural-language answer. Never output <tool_call>, "
-            "<arg_key>, <arg_value>, JSON tool requests, or instructions for "
+            "[TOOL_CALL], <arg_key>, <arg_value>, JSON tool requests, or instructions for "
             "another tool to run."
         )
 
