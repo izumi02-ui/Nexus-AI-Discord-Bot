@@ -124,6 +124,12 @@ Presentation never changes the accuracy verdict:
   executable code;
 - reference images come only from HTTPS URLs returned by evidence tools;
 - source links and the verifier disclosure stay attached to the same outcome.
+- retrieved URLs are rendered deterministically in one `Links & References`
+  embed with a title, short caption and the first source-provided image;
+- more than three links remain grouped in that single embed instead of becoming
+  a long plain-text source list;
+- requester attribution shows the Discord display name, `@username`, and
+  numeric user ID without creating a mention.
 
 Admin commands (creator only): `/nexus accuracy`, `/nexus status`,
 `/nexus reverify`, `/nexus tools`, `/nexus models`, `/nexus knowledge`.
