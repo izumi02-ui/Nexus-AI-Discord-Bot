@@ -146,20 +146,12 @@ def test_weather_tool_says_so_when_it_cannot_find_the_place(monkeypatch):
     async def no_place(self, text):
         return None
 
-    monkeypatch.setattr(
-        weather_module,
-        "resolve_place",
-        lambda *a, **k: asyncio.sleep(0, result=None),
-        raising=False,
-    )
-
     tool = weather_module.WeatherTool()
 
     async def broken_geocode(text):
         return None
 
-    monkeypatch.setattr(tool, "_place", broken_geocode, raising=False)
-    monkeypatch.setattr("tools._geo.geocode", broken_geocode, raising=False)
+    monkeypatch.setattr(weather_module, "geocode", broken_geocode)
 
     assert asyncio.run(tool.execute("weather in atlantis")) == []
 
