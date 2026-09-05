@@ -20,6 +20,15 @@
   `/health`.
 - Added clean per-guild handoff between music and live conversation because one
   Discord bot connection cannot run both modes in the same guild at once.
+- Added an RMS voice-activity gate before Whisper, per-speaker transcript
+  deduplication, bounded failure cleanup and rate-limited voice error notices.
+- Groq TTS terms/permission failures now degrade to text without pausing STT;
+  the same access warning is sent once per session state and later turns retry.
+- Added authenticated Lavalink capability probing for LavaSrc, Spotify and the
+  modern YouTube plugin, delayed Now Playing announcements, structured track
+  exception logs, one-shot Spotify playback fallback, and retry deduplication.
+- Added a shared per-guild audio coordinator so music and conversational voice
+  cannot race while handing over Discord's single voice connection.
 - Fixed Mistral startup detection for SDK builds that expose the client as
   `mistralai.client.Mistral` instead of a top-level export.
 
@@ -72,7 +81,7 @@
 - **Natural Discord conversations** - every DM works without a mention; tagged
   DMs still work; server messages work through either a mention or a direct
   reply to Nexus.
-- **Complete environment templates** - `.env.example` now documents all 90
+- **Complete environment templates** - `.env.example` now documents all 93
   supported settings once, including direct and local providers, search tools,
   accuracy controls, memory, file access, Render and logging.
 
