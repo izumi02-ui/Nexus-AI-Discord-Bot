@@ -13,11 +13,12 @@ from discord import app_commands
 from discord.ext import commands, voice_recv
 
 from ai.engine import engine
+from media.audio_coordinator import audio_coordinator
 from media.common import speakable_text, truncate
 from media.dave_compat import install_voice_receive_dave_patch
 from media.speech import (
     GroqSpeech,
-    SpeechModelTermsRequired,
+    SpeechModelAccessError,
     VOICE_CONTEXT,
     ffmpeg_executable,
 )
@@ -77,6 +78,8 @@ class VoiceSession:
         self.speaking = False
         self.closed = False
         self.last_error_notice_at = float("-inf")
+        self.tts_available: bool | None = None
+        self.speech_access_notice_key: tuple[str, str, str] | None = None
 
     def start(self) -> None:
         self.start_listening()
@@ -205,18 +208,16 @@ class VoiceSession:
                     await self._answer_turn(turn)
                 except asyncio.CancelledError:
                     raise
-                except SpeechModelTermsRequired as error:
+                except SpeechModelAccessError as error:
                     logger.warning(
-                        "Live voice paused in guild %s: Groq model terms required",
+                        "Groq speech access denied in guild %s operation=%s "
+                        "model=%s code=%s; listening remains active",
                         self.voice_client.guild.id,
+                        error.operation,
+                        error.model,
+                        error.code,
                     )
-                    self.pause_listening()
-                    await self._notice(
-                        "⚠️ Nexy paused live listening because the configured Groq "
-                        f"speech model (`{error.model}`) needs its terms "
-                        "accepted for this Groq organization. Accept them in Groq "
-                        "Console, then use `/voice unmute`."
-                    )
+                    await self._notice_speech_access_error(error)
                 except Exception as error:  # noqa: BLE001 - keep later turns alive
                     logger.exception("Voice turn failed in guild %s", self.voice_client.guild.id)
                     self.buffer.clear()
@@ -255,10 +256,23 @@ class VoiceSession:
             limit=settings.voice_max_reply_chars,
         )
 
-        if settings.voice_transcripts:
+        transcript_posted = settings.voice_transcripts
+        if transcript_posted:
             await self._post_transcript(turn, transcript, written)
 
-        audio = await self.speech.synthesize(spoken)
+        try:
+            audio = await self.speech.synthesize(spoken)
+        except SpeechModelAccessError as error:
+            if (
+                error.operation == "tts"
+                and settings.voice_tts_text_fallback
+                and not transcript_posted
+            ):
+                await self._post_transcript(turn, transcript, written)
+            raise
+
+        self.tts_available = True
+        self.speech_access_notice_key = None
         await self._play(audio)
 
     async def _post_transcript(
@@ -278,6 +292,13 @@ class VoiceSession:
             return
 
         async with self.playback_lock:
+            guild_id = self.voice_client.guild.id
+            state = audio_coordinator.state_for(guild_id)
+            if state.mode not in {None, "voice"}:
+                raise VoiceError("Another Nexus audio mode currently owns this guild.")
+            if state.mode is None:
+                audio_coordinator.claim(guild_id, "voice")
+
             path: pathlib.Path | None = None
             finished = asyncio.Event()
             loop = asyncio.get_running_loop()
@@ -300,6 +321,7 @@ class VoiceSession:
                     loop.call_soon_threadsafe(finished.set)
 
                 self.speaking = True
+                audio_coordinator.set_tts_speaking(guild_id, True)
                 self.buffer.clear()
 
                 if self.voice_client.is_playing():
@@ -314,6 +336,7 @@ class VoiceSession:
                     raise VoiceError("Speech playback timed out.") from error
             finally:
                 self.speaking = False
+                audio_coordinator.set_tts_speaking(guild_id, False)
                 if path is not None:
                     with contextlib.suppress(OSError):
                         path.unlink()
@@ -333,6 +356,37 @@ class VoiceSession:
         await self._notice(
             "⚠️ Nexy could not complete that voice turn. The pending audio queue "
             "was cleared; please try speaking again in a moment."
+        )
+
+    async def _notice_speech_access_error(
+        self, error: SpeechModelAccessError
+    ) -> None:
+        """Report one access error per model/code while continuing the session."""
+        key = (error.operation, error.model, error.code)
+        if error.operation == "tts":
+            self.tts_available = False
+        if self.speech_access_notice_key == key:
+            return
+        self.speech_access_notice_key = key
+
+        if error.operation == "tts":
+            fallback = (
+                "Nexy can still listen and reply in text, but "
+                if settings.voice_tts_text_fallback
+                else "Nexy can still listen, but "
+            )
+            await self._notice(
+                f"⚠️ {fallback}Groq denied TTS access to `{error.model}` "
+                f"(`{error.code}`). The Groq organization/project that issued "
+                "`GROQ_API_KEY` must have Orpheus access and its model terms "
+                "accepted. Listening remains active."
+            )
+            return
+
+        await self._notice(
+            f"⚠️ Groq denied speech-recognition access to `{error.model}` "
+            f"(`{error.code}`). Check the organization/project associated with "
+            "`GROQ_API_KEY`. The session remains connected and will retry."
         )
 
     async def stop(self, *, disconnect: bool) -> None:
@@ -375,10 +429,9 @@ class VoiceCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.sessions: dict[int, VoiceSession] = {}
-        self.locks: dict[int, asyncio.Lock] = {}
 
     def lock_for(self, guild_id: int) -> asyncio.Lock:
-        return self.locks.setdefault(guild_id, asyncio.Lock())
+        return audio_coordinator.lock_for(guild_id)
 
     def health(self) -> dict:
         ffmpeg_ready = False
@@ -400,8 +453,10 @@ class VoiceCommands(commands.Cog):
             "ffmpeg_ready": ffmpeg_ready,
             "sessions": len(self.sessions),
             "stt_model": settings.voice_stt_model,
+            "tts_provider": settings.voice_tts_provider,
             "tts_model": settings.voice_tts_model,
             "voice": settings.voice_tts_voice,
+            "text_fallback": settings.voice_tts_text_fallback,
             "text_mirror": settings.voice_transcripts,
             "noise_gate": settings.voice_rms_threshold,
             "dave_ready": DAVE_COMPATIBILITY.ready,
@@ -452,6 +507,7 @@ class VoiceCommands(commands.Cog):
                 self.ensure_same_channel(interaction, existing)
                 existing.text_channel = interaction.channel
                 existing.start_listening()
+                audio_coordinator.claim(guild.id, "voice")
                 return existing
 
             voice_client = guild.voice_client
@@ -470,6 +526,7 @@ class VoiceCommands(commands.Cog):
             )
             session = VoiceSession(self, receiver, interaction.channel)
             self.sessions[guild.id] = session
+            audio_coordinator.claim(guild.id, "voice")
             session.start()
             return session
 
@@ -480,9 +537,12 @@ class VoiceCommands(commands.Cog):
             client = guild.voice_client if guild else None
             if disconnect and isinstance(client, voice_recv.VoiceRecvClient):
                 await client.disconnect(force=True)
+                audio_coordinator.release(guild_id, "voice")
                 return True
+            audio_coordinator.release(guild_id, "voice")
             return False
         await session.stop(disconnect=disconnect)
+        audio_coordinator.release(guild_id, "voice")
         return True
 
     async def send_error(self, interaction: discord.Interaction, error: Exception):
@@ -561,7 +621,16 @@ class VoiceCommands(commands.Cog):
         self.ensure_same_channel(interaction, session)
         await interaction.response.defer(ephemeral=True)
         spoken = speakable_text(text, limit=200)
-        await session._play(await session.speech.synthesize(spoken))
+        try:
+            audio = await session.speech.synthesize(spoken)
+        except SpeechModelAccessError as error:
+            await session._notice_speech_access_error(error)
+            raise VoiceError(
+                f"Groq denied TTS access to {error.model} ({error.code}). "
+                "Check Orpheus access/terms for the organization or project "
+                "associated with GROQ_API_KEY."
+            ) from error
+        await session._play(audio)
         await interaction.followup.send("Spoken.", ephemeral=True)
 
     async def _leave_command(self, interaction: discord.Interaction):
@@ -590,12 +659,15 @@ class VoiceCommands(commands.Cog):
             f"- speech API: **{'ready' if health['speech_configured'] else 'GROQ_API_KEY missing'}**",
             f"- FFmpeg: **{'ready' if health['ffmpeg_ready'] else 'missing'}**",
             f"- Discord DAVE/E2EE: **{'ready' if health['dave_ready'] else 'not ready'}**",
-            f"- female voice: `{health['voice']}` via `{health['tts_model']}`",
+            f"- female voice: `{health['voice']}` via `{health['tts_provider']}/{health['tts_model']}`",
             f"- recognition: `{health['stt_model']}`",
             f"- silence/noise gate: RMS `{health['noise_gate']}`",
             f"- this server: **{'listening' if session and session.listening else 'inactive'}**",
             f"- text mirror: **{'on' if health['text_mirror'] else 'off'}**",
+            f"- TTS text fallback: **{'on' if health['text_fallback'] else 'off'}**",
         ]
+        if session and session.tts_available is False:
+            lines.append("- TTS runtime: **access denied; text fallback active**")
         if health["error"]:
             lines.append(f"- issue: {health['error'][:300]}")
         if not health["dave_ready"]:
