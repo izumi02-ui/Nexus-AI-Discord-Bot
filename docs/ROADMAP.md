@@ -1,8 +1,8 @@
 # 🗺 Project Nexus — Roadmap
 
-Nexus 2.0.0-alpha.2 is the **accuracy release**: retrieval policy, cross-checked
-evidence, post-generation verification, and a store of knowledge that re-checks
-itself.
+Nexus 3.0.0-alpha.1 adds the **media release** on top of the accuracy pipeline:
+Lavalink music and opt-in, turn-based voice conversations without replacing or
+bypassing the verified text engine.
 
 What follows is ordered by how much accuracy each item buys per unit of work,
 not by how interesting it is.
@@ -22,6 +22,14 @@ not by how interesting it is.
       images, and complete-file delivery for oversized generated code.
 - [x] Keep normal code-generation requests out of unnecessary live search while
       preserving search for current APIs, releases and documentation.
+- [x] Add a per-guild Lavalink v4 music system with 25 slash commands, queues,
+      playlists, controls, autoplay, filters and automatic resource cleanup.
+- [x] Add opt-in conversational voice using Groq Whisper STT and Orpheus female
+      speech, bounded in-memory turns and explicit consent.
+- [x] Guard inbound Discord DAVE handling for the pinned receive extension and
+      fail closed when the voice stack is incompatible.
+- [x] Fix current and legacy Mistral SDK client layouts without disabling other
+      provider failover.
 - [ ] Register the model catalog refresh on startup (currently run by the
       updater cycle and `/nexus models` only).
 
@@ -64,8 +72,11 @@ the README's [Planned features](../README.md#planned-features) section.
 
 ## Later
 
-- [ ] Voice channels, image generation, dashboard, plugin system, event system,
-      analytics (carried over from the original design doc, still unbuilt).
+- [ ] True streaming/full-duplex voice when a stable Discord DAVE-capable voice
+      receive library and streaming STT/TTS path are available; the current
+      release intentionally processes one finished turn at a time.
+- [ ] Image generation, dashboard, plugin system, event system and analytics
+      (carried over from the original design doc, still unbuilt).
 - [ ] Google Drive / Supabase sync — the local SQLite store is deliberate and
       works on Render's free tier; a hosted mirror is only worth it for
       multi-instance deployments.
