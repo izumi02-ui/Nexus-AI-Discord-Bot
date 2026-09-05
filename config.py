@@ -233,16 +233,31 @@ MUSIC_DEFAULT_VOLUME = max(0, min(200, int(os.getenv("MUSIC_DEFAULT_VOLUME", "75
 MUSIC_MAX_QUEUE = max(10, min(1000, int(os.getenv("MUSIC_MAX_QUEUE", "250"))))
 MUSIC_DJ_ROLE = os.getenv("MUSIC_DJ_ROLE", "DJ").strip()
 MUSIC_ANNOUNCE_TRACKS = _flag("MUSIC_ANNOUNCE_TRACKS", "true")
+MUSIC_START_GRACE_SECONDS = max(
+    0.25, min(10.0, float(os.getenv("MUSIC_START_GRACE_SECONDS", "1.5")))
+)
+MUSIC_SPOTIFY_FALLBACK = _flag("MUSIC_SPOTIFY_FALLBACK", "true")
+MUSIC_NODE_PROBE_TIMEOUT = max(
+    2.0, min(30.0, float(os.getenv("MUSIC_NODE_PROBE_TIMEOUT", "8")))
+)
 
 # Live voice is turn-based: receive PCM -> Groq Whisper -> Nexus -> Groq
 # Orpheus. Audio is kept in memory only until its turn has been transcribed.
 VOICE_CHAT_ENABLED = _flag("VOICE_CHAT_ENABLED", "true")
 VOICE_STT_MODEL = os.getenv("VOICE_STT_MODEL", "whisper-large-v3-turbo").strip()
+# GROQ_TTS_* are canonical. The older VOICE_TTS_MODEL and VOICE_TTS_VOICE
+# names remain accepted so existing deployments do not break during rollout.
+VOICE_TTS_PROVIDER = os.getenv("VOICE_TTS_PROVIDER", "groq").strip().casefold()
 VOICE_TTS_MODEL = os.getenv(
-    "VOICE_TTS_MODEL", "canopylabs/orpheus-v1-english"
+    "GROQ_TTS_MODEL",
+    os.getenv("VOICE_TTS_MODEL", "canopylabs/orpheus-v1-english"),
 ).strip()
-VOICE_TTS_VOICE = os.getenv("VOICE_TTS_VOICE", "hannah").strip()
+VOICE_TTS_VOICE = os.getenv(
+    "GROQ_TTS_VOICE",
+    os.getenv("VOICE_TTS_VOICE", "hannah"),
+).strip()
 VOICE_TTS_SPEED = max(0.5, min(2.0, float(os.getenv("VOICE_TTS_SPEED", "1.0"))))
+VOICE_TTS_TEXT_FALLBACK = _flag("VOICE_TTS_TEXT_FALLBACK", "true")
 VOICE_LANGUAGE = os.getenv("VOICE_LANGUAGE", "").strip().lower()
 VOICE_SILENCE_SECONDS = max(
     0.4, min(3.0, float(os.getenv("VOICE_SILENCE_SECONDS", "0.9")))
