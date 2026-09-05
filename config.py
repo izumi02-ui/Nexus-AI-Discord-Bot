@@ -253,6 +253,20 @@ VOICE_MIN_UTTERANCE_SECONDS = max(
 VOICE_MAX_UTTERANCE_SECONDS = max(
     3.0, min(60.0, float(os.getenv("VOICE_MAX_UTTERANCE_SECONDS", "20")))
 )
+# Ignore decoded silence and low-level background packets before they can reach
+# Whisper. Increase this if an especially noisy room still creates false turns;
+# decrease it if genuinely quiet speakers are being missed.
+VOICE_RMS_THRESHOLD = max(
+    0, min(32_767, int(os.getenv("VOICE_RMS_THRESHOLD", "250")))
+)
+# Whisper can occasionally return the same short hallucination for noise. This
+# second guard prevents an identical transcript from repeatedly reaching Nexus.
+VOICE_DUPLICATE_WINDOW_SECONDS = max(
+    0.0, min(120.0, float(os.getenv("VOICE_DUPLICATE_WINDOW_SECONDS", "12")))
+)
+VOICE_ERROR_COOLDOWN_SECONDS = max(
+    5.0, min(300.0, float(os.getenv("VOICE_ERROR_COOLDOWN_SECONDS", "30")))
+)
 # Groq Orpheus currently accepts at most 200 input characters per request.
 VOICE_MAX_REPLY_CHARS = max(
     80, min(200, int(os.getenv("VOICE_MAX_REPLY_CHARS", "190")))
