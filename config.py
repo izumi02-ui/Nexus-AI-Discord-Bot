@@ -16,7 +16,7 @@ load_dotenv()
 # ==========================================
 
 PROJECT_NAME = "Project Nexus"
-VERSION = "1.3.0-alpha.V3"
+VERSION = "3.0.0-alpha.1"
 
 
 # ==========================================
@@ -24,6 +24,7 @@ VERSION = "1.3.0-alpha.V3"
 # ==========================================
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+NEXUS_NICKNAME = os.getenv("NEXUS_NICKNAME", "Nexy").strip() or "Nexy"
 
 
 # ==========================================
@@ -214,6 +215,52 @@ MEMORY_LIMIT = int(
 
 def _flag(name: str, default: str = "true") -> bool:
     return os.getenv(name, default).lower() in {"1", "true", "yes", "on"}
+
+
+# ==========================================
+# Voice and Music
+# ==========================================
+
+# Music is streamed by an external Lavalink v4 node. Spotify's Web API exposes
+# metadata, not audio; a LavaSrc-enabled node resolves Spotify/Apple/Deezer
+# URLs to playable tracks without Nexus scraping media itself.
+MUSIC_ENABLED = _flag("MUSIC_ENABLED", "true")
+LAVALINK_URI = os.getenv("LAVALINK_URI", "").strip().rstrip("/")
+LAVALINK_PASSWORD = os.getenv("LAVALINK_PASSWORD", "").strip()
+LAVALINK_IDENTIFIER = os.getenv("LAVALINK_IDENTIFIER", "nexus-main").strip()
+LAVALINK_INACTIVE_TIMEOUT = int(os.getenv("LAVALINK_INACTIVE_TIMEOUT", "300"))
+MUSIC_DEFAULT_VOLUME = max(0, min(200, int(os.getenv("MUSIC_DEFAULT_VOLUME", "75"))))
+MUSIC_MAX_QUEUE = max(10, min(1000, int(os.getenv("MUSIC_MAX_QUEUE", "250"))))
+MUSIC_DJ_ROLE = os.getenv("MUSIC_DJ_ROLE", "DJ").strip()
+MUSIC_ANNOUNCE_TRACKS = _flag("MUSIC_ANNOUNCE_TRACKS", "true")
+
+# Live voice is turn-based: receive PCM -> Groq Whisper -> Nexus -> Groq
+# Orpheus. Audio is kept in memory only until its turn has been transcribed.
+VOICE_CHAT_ENABLED = _flag("VOICE_CHAT_ENABLED", "true")
+VOICE_STT_MODEL = os.getenv("VOICE_STT_MODEL", "whisper-large-v3-turbo").strip()
+VOICE_TTS_MODEL = os.getenv(
+    "VOICE_TTS_MODEL", "canopylabs/orpheus-v1-english"
+).strip()
+VOICE_TTS_VOICE = os.getenv("VOICE_TTS_VOICE", "hannah").strip()
+VOICE_TTS_SPEED = max(0.5, min(2.0, float(os.getenv("VOICE_TTS_SPEED", "1.0"))))
+VOICE_LANGUAGE = os.getenv("VOICE_LANGUAGE", "").strip().lower()
+VOICE_SILENCE_SECONDS = max(
+    0.4, min(3.0, float(os.getenv("VOICE_SILENCE_SECONDS", "0.9")))
+)
+VOICE_MIN_UTTERANCE_SECONDS = max(
+    0.2, min(3.0, float(os.getenv("VOICE_MIN_UTTERANCE_SECONDS", "0.5")))
+)
+VOICE_MAX_UTTERANCE_SECONDS = max(
+    3.0, min(60.0, float(os.getenv("VOICE_MAX_UTTERANCE_SECONDS", "20")))
+)
+# Groq Orpheus currently accepts at most 200 input characters per request.
+VOICE_MAX_REPLY_CHARS = max(
+    80, min(200, int(os.getenv("VOICE_MAX_REPLY_CHARS", "190")))
+)
+# Post a readable voice-turn mirror in the command channel. The normal AI
+# engine memory policy applies to transcribed text independently.
+VOICE_TRANSCRIPTS = _flag("VOICE_TRANSCRIPTS", "true")
+FFMPEG_PATH = os.getenv("FFMPEG_PATH", "").strip()
 
 
 #: auto = decide per question, always = search every prompt, never = chat only.
