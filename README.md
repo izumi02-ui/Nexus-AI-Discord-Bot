@@ -4,7 +4,7 @@
 
 It runs on free or local models, and the guarantee comes from the pipeline around the model - not from the model itself.
 
-`Nexus 3.0.0-alpha.1` 路 Python 3.11 路 discord.py 路 FastAPI 路 SQLite 路 Lavalink
+`Nexus 1.3.0-alpha.V4` 路 Python 3.11 路 discord.py 路 FastAPI 路 SQLite 路 Lavalink
 
 ---
 
