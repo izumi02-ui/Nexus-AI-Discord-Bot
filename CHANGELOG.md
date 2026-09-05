@@ -4,7 +4,7 @@
 
 ## Unreleased
 
-### 🎧 Nexus 3.0.0-alpha.1 media update
+### 🎧 Nexus 1.4.0-alpha.V4 media update
 
 - Added a Lavalink v4 music system with 25 `/music` commands: connection,
   search/URL/playlist playback, queue editing, previous/replay, seek, loop,
