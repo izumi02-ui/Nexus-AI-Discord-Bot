@@ -8,6 +8,7 @@ from config import (
     PROJECT_NAME,
     VERSION,
     DISCORD_TOKEN,
+    NEXUS_NICKNAME,
     DEFAULT_PROVIDER,
     GEMINI_API_KEY,
     OPENAI_API_KEY,
@@ -75,6 +76,27 @@ from config import (
     RUNTIME_FACTS_INTERVAL,
     FILE_READER_ROOT,
     FILE_READER_ENABLED,
+    MUSIC_ENABLED,
+    LAVALINK_URI,
+    LAVALINK_PASSWORD,
+    LAVALINK_IDENTIFIER,
+    LAVALINK_INACTIVE_TIMEOUT,
+    MUSIC_DEFAULT_VOLUME,
+    MUSIC_MAX_QUEUE,
+    MUSIC_DJ_ROLE,
+    MUSIC_ANNOUNCE_TRACKS,
+    VOICE_CHAT_ENABLED,
+    VOICE_STT_MODEL,
+    VOICE_TTS_MODEL,
+    VOICE_TTS_VOICE,
+    VOICE_TTS_SPEED,
+    VOICE_LANGUAGE,
+    VOICE_SILENCE_SECONDS,
+    VOICE_MIN_UTTERANCE_SECONDS,
+    VOICE_MAX_UTTERANCE_SECONDS,
+    VOICE_MAX_REPLY_CHARS,
+    VOICE_TRANSCRIPTS,
+    FFMPEG_PATH,
 )
 
 
@@ -86,6 +108,7 @@ class Settings:
 
         # Discord
         self.discord_token = DISCORD_TOKEN
+        self.nexus_nickname = NEXUS_NICKNAME
 
         # Default provider
         self.provider = DEFAULT_PROVIDER
@@ -140,6 +163,29 @@ class Settings:
         self.libretranslate_url = LIBRETRANSLATE_URL
         self.file_reader_root = FILE_READER_ROOT
         self.file_reader_enabled = FILE_READER_ENABLED
+
+        # Discord voice and music
+        self.music_enabled = MUSIC_ENABLED
+        self.lavalink_uri = LAVALINK_URI
+        self.lavalink_password = LAVALINK_PASSWORD
+        self.lavalink_identifier = LAVALINK_IDENTIFIER
+        self.lavalink_inactive_timeout = LAVALINK_INACTIVE_TIMEOUT
+        self.music_default_volume = MUSIC_DEFAULT_VOLUME
+        self.music_max_queue = MUSIC_MAX_QUEUE
+        self.music_dj_role = MUSIC_DJ_ROLE
+        self.music_announce_tracks = MUSIC_ANNOUNCE_TRACKS
+        self.voice_chat_enabled = VOICE_CHAT_ENABLED
+        self.voice_stt_model = VOICE_STT_MODEL
+        self.voice_tts_model = VOICE_TTS_MODEL
+        self.voice_tts_voice = VOICE_TTS_VOICE
+        self.voice_tts_speed = VOICE_TTS_SPEED
+        self.voice_language = VOICE_LANGUAGE
+        self.voice_silence_seconds = VOICE_SILENCE_SECONDS
+        self.voice_min_utterance_seconds = VOICE_MIN_UTTERANCE_SECONDS
+        self.voice_max_utterance_seconds = VOICE_MAX_UTTERANCE_SECONDS
+        self.voice_max_reply_chars = VOICE_MAX_REPLY_CHARS
+        self.voice_transcripts = VOICE_TRANSCRIPTS
+        self.ffmpeg_path = FFMPEG_PATH
 
         # Accuracy pipeline
         self.search_mode = SEARCH_MODE
@@ -212,6 +258,12 @@ class Settings:
             "self_update_interval": self.self_update_interval,
             "knowledge_ttl": self.knowledge_ttl,
             "model_auto_refresh": self.model_auto_refresh,
+            "music_enabled": self.music_enabled,
+            "lavalink_configured": bool(
+                self.lavalink_uri and self.lavalink_password
+            ),
+            "voice_chat_enabled": self.voice_chat_enabled,
+            "voice_speech_configured": bool(self.groq_api_key),
         }
 
 
