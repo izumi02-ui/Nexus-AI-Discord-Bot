@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import pathlib
 import tempfile
+import time
 
 import discord
 from discord import app_commands
@@ -14,8 +15,17 @@ from discord.ext import commands, voice_recv
 from ai.engine import engine
 from media.common import speakable_text, truncate
 from media.dave_compat import install_voice_receive_dave_patch
-from media.speech import GroqSpeech, VOICE_CONTEXT, ffmpeg_executable
-from media.voice_buffer import Utterance, UtteranceBuffer
+from media.speech import (
+    GroqSpeech,
+    SpeechModelTermsRequired,
+    VOICE_CONTEXT,
+    ffmpeg_executable,
+)
+from media.voice_buffer import (
+    DuplicateTranscriptGuard,
+    Utterance,
+    UtteranceBuffer,
+)
 from utils.discord_utils import safe_text
 from utils.logger import logger
 from utils.permissions import is_admin
@@ -49,8 +59,12 @@ class VoiceSession:
             silence_seconds=settings.voice_silence_seconds,
             minimum_seconds=settings.voice_min_utterance_seconds,
             maximum_seconds=settings.voice_max_utterance_seconds,
+            minimum_rms=settings.voice_rms_threshold,
             max_ready=8,
             max_speakers=8,
+        )
+        self.transcript_guard = DuplicateTranscriptGuard(
+            window_seconds=settings.voice_duplicate_window_seconds
         )
         self.turns: asyncio.Queue[Utterance] = asyncio.Queue(maxsize=8)
         self.segment_task: asyncio.Task | None = None
@@ -62,6 +76,7 @@ class VoiceSession:
         self.muted = False
         self.speaking = False
         self.closed = False
+        self.last_error_notice_at = float("-inf")
 
     def start(self) -> None:
         self.start_listening()
@@ -84,15 +99,20 @@ class VoiceSession:
         self.listening = True
 
     def pause_listening(self) -> None:
-        if not self.listening:
-            self.muted = True
-            self.buffer.clear()
-            return
-
         self.muted = True
-        self.listening = False
-        self.voice_client.stop_listening()
+        if self.listening:
+            self.listening = False
+            self.voice_client.stop_listening()
         self.buffer.clear()
+        self.transcript_guard.clear()
+        self._discard_pending_turns()
+
+    def _discard_pending_turns(self) -> None:
+        """Drop queued PCM safely after mute or a failed provider turn."""
+        while not self.turns.empty():
+            with contextlib.suppress(asyncio.QueueEmpty):
+                self.turns.get_nowait()
+                self.turns.task_done()
 
     def _listen_finished(self, error: Exception | None) -> None:
         self.listening = False
@@ -185,9 +205,23 @@ class VoiceSession:
                     await self._answer_turn(turn)
                 except asyncio.CancelledError:
                     raise
+                except SpeechModelTermsRequired as error:
+                    logger.warning(
+                        "Live voice paused in guild %s: Groq model terms required",
+                        self.voice_client.guild.id,
+                    )
+                    self.pause_listening()
+                    await self._notice(
+                        "⚠️ Nexy paused live listening because the configured Groq "
+                        f"speech model (`{error.model}`) needs its terms "
+                        "accepted for this Groq organization. Accept them in Groq "
+                        "Console, then use `/voice unmute`."
+                    )
                 except Exception as error:  # noqa: BLE001 - keep later turns alive
                     logger.exception("Voice turn failed in guild %s", self.voice_client.guild.id)
-                    await self._notice(f"⚠️ I could not process that voice turn: {str(error)[:300]}")
+                    self.buffer.clear()
+                    self._discard_pending_turns()
+                    await self._notice_turn_error()
                 finally:
                     self.turns.task_done()
         except asyncio.CancelledError:
@@ -200,6 +234,13 @@ class VoiceSession:
         # or empty transcriptions are usually packet noise, not a user request.
         transcript = " ".join(transcript.split()).strip()
         if len(transcript) < 2:
+            return
+        if self.transcript_guard.is_duplicate(turn.user_id, transcript):
+            logger.info(
+                "Ignored duplicate voice transcript in guild %s from user %s",
+                self.voice_client.guild.id,
+                turn.user_id,
+            )
             return
 
         outcome = await engine.respond(
@@ -284,6 +325,16 @@ class VoiceSession:
                 allowed_mentions=discord.AllowedMentions.none(),
             )
 
+    async def _notice_turn_error(self) -> None:
+        stamp = time.monotonic()
+        if stamp - self.last_error_notice_at < settings.voice_error_cooldown_seconds:
+            return
+        self.last_error_notice_at = stamp
+        await self._notice(
+            "⚠️ Nexy could not complete that voice turn. The pending audio queue "
+            "was cleared; please try speaking again in a moment."
+        )
+
     async def stop(self, *, disconnect: bool) -> None:
         if self.closed:
             return
@@ -303,10 +354,7 @@ class VoiceSession:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
-        while not self.turns.empty():
-            with contextlib.suppress(asyncio.QueueEmpty):
-                self.turns.get_nowait()
-                self.turns.task_done()
+        self._discard_pending_turns()
 
         if self.voice_client.is_playing():
             self.voice_client.stop_playing()
@@ -355,6 +403,7 @@ class VoiceCommands(commands.Cog):
             "tts_model": settings.voice_tts_model,
             "voice": settings.voice_tts_voice,
             "text_mirror": settings.voice_transcripts,
+            "noise_gate": settings.voice_rms_threshold,
             "dave_ready": DAVE_COMPATIBILITY.ready,
             "dave_patch": DAVE_COMPATIBILITY.patched,
             "dave_detail": DAVE_COMPATIBILITY.detail,
@@ -543,6 +592,7 @@ class VoiceCommands(commands.Cog):
             f"- Discord DAVE/E2EE: **{'ready' if health['dave_ready'] else 'not ready'}**",
             f"- female voice: `{health['voice']}` via `{health['tts_model']}`",
             f"- recognition: `{health['stt_model']}`",
+            f"- silence/noise gate: RMS `{health['noise_gate']}`",
             f"- this server: **{'listening' if session and session.listening else 'inactive'}**",
             f"- text mirror: **{'on' if health['text_mirror'] else 'off'}**",
         ]
