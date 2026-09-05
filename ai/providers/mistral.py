@@ -12,7 +12,9 @@ an unusable provider simply reports `available = False`, like every other
 optional piece of Nexus.
 """
 
+import importlib
 import importlib.util
+from functools import lru_cache
 from typing import Dict, List
 
 from ai.provider_capabilities import ProviderCapabilities
@@ -22,18 +24,44 @@ from utils.logger import logger
 from utils.settings import settings
 
 
+@lru_cache(maxsize=1)
+def _mistral_client_class():
+    """Resolve the official client across both Mistral SDK export layouts.
+
+    Recent ``mistralai`` wheels are namespace packages and expose the client as
+    ``mistralai.client.Mistral`` rather than ``mistralai.Mistral``.  Checking
+    only the package root made a perfectly valid Render install look broken.
+    The fallback keeps compatibility with older wheels without pinning Nexus
+    to one SDK layout.
+    """
+    try:
+        if importlib.util.find_spec("mistralai") is None:
+            raise ImportError("mistralai package is not installed")
+
+        try:
+            client_module = importlib.import_module("mistralai.client")
+            client = getattr(client_module, "Mistral", None)
+        except Exception:  # noqa: BLE001 - try the legacy public export next
+            client = None
+
+        if client is None:
+            package = importlib.import_module("mistralai")
+            client = getattr(package, "Mistral", None)
+
+        if client is None:
+            raise ImportError("installed mistralai build has no Mistral client")
+
+        return client
+    except Exception as error:  # noqa: BLE001 - optional provider stays optional
+        raise RuntimeError(f"mistralai could not be imported ({error})") from error
+
+
 def _sdk_error() -> str | None:
     """None when the Mistral SDK can be imported, otherwise why not."""
     try:
-        if importlib.util.find_spec("mistralai") is None:
-            return "mistralai package is not installed"
-
-        module = importlib.import_module("mistralai")
-    except Exception as error:  # noqa: BLE001 - any import failure is the same outcome
-        return f"mistralai could not be imported ({error})"
-
-    if not hasattr(module, "Mistral"):
-        return "installed mistralai build does not expose the Mistral client"
+        _mistral_client_class()
+    except Exception as error:  # noqa: BLE001
+        return str(error)
 
     return None
 
@@ -75,9 +103,9 @@ class MistralProvider(BaseProvider):
 
         logger.info("Initializing Mistral...")
 
-        mistralai = __import__("mistralai", fromlist=["Mistral"])
+        client_class = _mistral_client_class()
 
-        self.client = mistralai.Mistral(
+        self.client = client_class(
             api_key=settings.mistral_api_key
         )
 
