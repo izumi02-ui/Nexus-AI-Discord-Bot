@@ -85,11 +85,16 @@ from config import (
     MUSIC_MAX_QUEUE,
     MUSIC_DJ_ROLE,
     MUSIC_ANNOUNCE_TRACKS,
+    MUSIC_START_GRACE_SECONDS,
+    MUSIC_SPOTIFY_FALLBACK,
+    MUSIC_NODE_PROBE_TIMEOUT,
     VOICE_CHAT_ENABLED,
     VOICE_STT_MODEL,
+    VOICE_TTS_PROVIDER,
     VOICE_TTS_MODEL,
     VOICE_TTS_VOICE,
     VOICE_TTS_SPEED,
+    VOICE_TTS_TEXT_FALLBACK,
     VOICE_LANGUAGE,
     VOICE_SILENCE_SECONDS,
     VOICE_MIN_UTTERANCE_SECONDS,
@@ -177,11 +182,16 @@ class Settings:
         self.music_max_queue = MUSIC_MAX_QUEUE
         self.music_dj_role = MUSIC_DJ_ROLE
         self.music_announce_tracks = MUSIC_ANNOUNCE_TRACKS
+        self.music_start_grace_seconds = MUSIC_START_GRACE_SECONDS
+        self.music_spotify_fallback = MUSIC_SPOTIFY_FALLBACK
+        self.music_node_probe_timeout = MUSIC_NODE_PROBE_TIMEOUT
         self.voice_chat_enabled = VOICE_CHAT_ENABLED
         self.voice_stt_model = VOICE_STT_MODEL
+        self.voice_tts_provider = VOICE_TTS_PROVIDER
         self.voice_tts_model = VOICE_TTS_MODEL
         self.voice_tts_voice = VOICE_TTS_VOICE
         self.voice_tts_speed = VOICE_TTS_SPEED
+        self.voice_tts_text_fallback = VOICE_TTS_TEXT_FALLBACK
         self.voice_language = VOICE_LANGUAGE
         self.voice_silence_seconds = VOICE_SILENCE_SECONDS
         self.voice_min_utterance_seconds = VOICE_MIN_UTTERANCE_SECONDS
