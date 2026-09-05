@@ -49,7 +49,7 @@ plugins:
       - MUSIC
       - ANDROID_VR
       - WEB
-      - TVHTML5_SIMPLY
+      - WEBEMBEDDED
   lavasrc:
     providers:
       - "ytsearch:\"%ISRC%\""
@@ -88,3 +88,5 @@ logging:
   level:
     root: INFO
     lavalink: INFO
+    dev.lavalink.youtube: ${LAVALINK_YOUTUBE_LOG_LEVEL:INFO}
+    com.github.topi314.lavasrc: ${LAVALINK_LAVASRC_LOG_LEVEL:INFO}
