@@ -1,6 +1,6 @@
 # 🌌 Project Nexus — Architecture
 
-**Version:** Nexus 2.0.0-alpha.2
+**Version:** Nexus 3.0.0-alpha.1
 **Doc status:** describes the code in this repository, not an aspiration.
 
 ---
@@ -76,6 +76,7 @@ read.
 | `ai/` | orchestration, prompting, verification, learning | invent facts itself |
 | `search/` | retrieval policy: freshness, cache, ranking, reports | know what a Discord message is |
 | `tools/` | one external API each, honest failures, declared TTLs | return placeholder text as success |
+| `media/` | bounded voice turns, Groq speech, Discord DAVE compatibility, media helpers | persist raw voice audio or bypass `ai/engine.py` |
 | `database/` | profiles, memory, facts, verified knowledge, history | hold business rules |
 | `core/` | the self-updating loop | mutate user settings or config.py |
 | `utils/` | settings, prompts, time, Discord presentation, permissions | make accuracy decisions |
@@ -114,6 +115,38 @@ read.
    worked solutions get a focused embed between plain prose; code is split into
    copyable parts or attached as a complete replacement file. Images must come
    from retrieved HTTPS evidence, never from model-written URLs.
+
+---
+
+# Media paths
+
+Music is isolated from the text pipeline:
+
+```text
+/music command → commands/music.py → Wavelink → Lavalink v4
+                                             ├─ YouTube source plugin
+                                             └─ LavaSrc (Spotify metadata → playable source)
+```
+
+The bot owns command policy, queues and Discord embeds; Lavalink owns searching,
+decoding and audio transport. State is per guild, bounded, and released when
+the channel empties or the inactivity deadline expires.
+
+Conversational voice deliberately reuses the normal AI engine:
+
+```text
+Discord PCM → turn segmentation → Groq STT → engine.respond()
+                                         → Groq TTS → Discord PCM
+```
+
+Only completed turns are transcribed, Nexus does not listen to its own output,
+and raw audio is never written to the database. Transcribed text follows the
+same bounded conversation-memory policy as a typed message; the optional
+Discord text mirror is a separate setting. The pinned receive extension is
+guarded for Discord's inbound DAVE packet order. If compatibility cannot be
+established, live voice reports unavailable instead of accepting corrupt audio.
+Because Discord allows one voice client per guild, voice-chat and music modes
+hand the connection over explicitly.
 
 ---
 
@@ -172,6 +205,11 @@ exist so a person can audit and erase what the bot says about them.
 | Model returns a fabricated citation | stripped by the verifier and logged |
 | Discord reports `NaN` latency during startup | `/health` returns `null`; the service remains healthy |
 | Model emits a tool-call envelope | the OpenRouter provider executes/normalises it; raw tool markup is not posted |
+| Mistral uses its namespace client layout | load `mistralai.client.Mistral`, with the legacy root export as fallback |
+| Lavalink node is offline | text/AI remains live; music commands show the node error and setup hint |
+| Last human leaves music | disconnect, clear the guild queue and cancel inactivity work |
+| Voice dependency is unavailable | disable only live voice and expose the exact reason in `/voice status` and `/health` |
+| Voice receive loop fails | one controlled listener restart; session-local cleanup if it cannot recover |
 
 ---
 
