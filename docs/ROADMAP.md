@@ -1,6 +1,6 @@
 # 🗺 Project Nexus — Roadmap
 
-Nexus 3.0.0-alpha.1 adds the **media release** on top of the accuracy pipeline:
+Nexus 1.4.0-alpha.V4 adds the **media release** on top of the accuracy pipeline:
 Lavalink music and opt-in, turn-based voice conversations without replacing or
 bypassing the verified text engine.
 
