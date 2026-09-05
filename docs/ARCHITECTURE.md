@@ -1,6 +1,6 @@
 # 🌌 Project Nexus — Architecture
 
-**Version:** Nexus 3.0.0-alpha.1
+**Version:** Nexus 1.4.0.0-alpha.V4
 **Doc status:** describes the code in this repository, not an aspiration.
 
 ---
