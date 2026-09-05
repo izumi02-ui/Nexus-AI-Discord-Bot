@@ -1,6 +1,6 @@
 # 🌌 Project Nexus — System Design
 
-**Version:** Nexus 2.0.0-alpha.2
+**Version:** Nexus 3.0.0-alpha.1
 **Status:** implementation reference for the `Nexus-V3` branch
 
 ---
@@ -71,7 +71,7 @@ the same engine, so they cannot develop different accuracy rules.
 - Slash commands and valid prefix commands are handled exactly once.
 - Up to three attachment URLs are forwarded as context. Unsupported image
   understanding is disclosed rather than simulated.
-- Nexus starts idle with the activity `/ask  •  mention me`.
+- Nexus starts idle with the activity `/ask  •  /music  •  /voice`.
 - `/` and `/health` expose deploy state for Render. Discord latency is `null`
   during startup if the client has not produced a finite value yet.
 
@@ -189,6 +189,39 @@ conversation never receives an embed merely for decoration.
 
 ---
 
+## Music and live voice
+
+Media is an optional layer beside text chat; it does not change the accuracy
+pipeline or prevent the bot from starting when media credentials are absent.
+
+Music uses `commands/music.py`, Wavelink and a separate Lavalink v4 process.
+Each guild has its own queue, playback lock and control state. Search terms,
+direct URLs and playlists resolve on Lavalink; the YouTube and LavaSrc plugins
+provide YouTube search and Spotify-to-playable-source matching. The bot releases
+the player when the channel becomes empty or its inactivity timer expires.
+
+Live voice uses `commands/voice.py` and `media/`:
+
+```text
+Discord decoded PCM → bounded turn buffer → Groq Whisper STT
+                    → ai/engine.py → Groq Orpheus TTS → Discord playback
+```
+
+This is turn-based, near-real-time conversation, not simultaneous full duplex.
+The session ignores bot audio while Nexus speaks, discards PCM after
+transcription, and sends the resulting text through the normal Nexus
+conversation-memory policy. Posting a text mirror is independently configurable.
+Starting a session requires a consent confirmation. A compatibility guard
+supplies inbound DAVE decryption for the pinned alpha voice-receive extension
+and refuses to start if the expected Discord voice stack is unavailable.
+
+Discord supports one bot voice connection per guild. Starting music stops live
+conversation in that guild and starting live conversation disconnects music;
+other guilds are unaffected. See [MEDIA.md](MEDIA.md) for deployment and the
+complete command list.
+
+---
+
 ## Persistence
 
 Nexus uses one SQLite database in WAL mode. Startup migrations are additive.
@@ -236,6 +269,11 @@ files or secrets.
 | Raw provider tool-call envelope | execute or normalise it; never post raw markup |
 | Oversized code | attach the complete file |
 | Startup latency is `NaN` | return `null` from health endpoint, not HTTP 500 |
+| Lavalink is absent or unhealthy | keep AI chat online; `/music status` reports exact setup/connection state |
+| Music channel becomes empty | disconnect and release queue/player resources |
+| STT/TTS key or FFmpeg is absent | keep text and music online; `/voice status` reports the missing dependency |
+| Voice receive fails mid-session | restart the listener once when safe; otherwise close only that guild session |
+| Voice protocol shape is incompatible | refuse live receive instead of processing undecrypted/corrupt audio |
 | Updater cycle fails | log and end that cycle; chat remains available |
 
 ---
