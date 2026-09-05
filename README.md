@@ -1,10 +1,10 @@
-# 馃寣 Project Nexus
+# 🌌 Project Nexus
 
 **An AI companion for Discord that would rather say *"I could not verify that"* than guess.**
 
 It runs on free or local models, and the guarantee comes from the pipeline around the model - not from the model itself.
 
-`Nexus 1.4.0-alpha.V4` 路 Python 3.11 路 discord.py 路 FastAPI 路 SQLite 路 Lavalink
+`Nexus 1.4.0-alpha.V4` · Python 3.11 · discord.py · FastAPI · SQLite · Lavalink
 
 ---
 
@@ -32,13 +32,13 @@ It runs on free or local models, and the guarantee comes from the pipeline aroun
 you: who is the prime minister of india?
 nexus: [Answers with the name and date found in the live evidence.]
        -# Sources
-       -# Source A: <https://...> 路 Source B: <https://...>
-       -# 鈿欙笍 verified 路 2 domains 路 freshness: today 路 1.9s
+       -# Source A: <https://...> · Source B: <https://...>
+       -# ⚙️ verified · 2 domains · freshness: today · 1.9s
 ```
 
 Every message goes through the same seven steps:
 
-**route 鈫� recall 鈫� retrieve 鈫� compose 鈫� answer 鈫� verify 鈫� learn**
+**route → recall → retrieve → compose → answer → verify → learn**
 
 1. **route** - does this even need looking up? A price does; "why is the sky blue" does not.
 2. **recall** - has Nexus already verified something that answers it?
@@ -62,7 +62,7 @@ Every message goes through the same seven steps:
 | **Tools** | 23 evidence modules as separate files, each declaring its own TTL, keywords, required keys and health (14 usable with no keys) |
 | **Discord** | slash commands + prefix commands; natural no-mention DMs; server mentions and direct replies; idle presence; attachments recognised; per-user cooldowns; cog auto-loading; startup-safe `/health` endpoint for Render |
 | **Music** | Lavalink v4 playback with 25 slash commands, queues, playlists, controls, seek, loop, filters, autoplay, per-guild state and automatic idle cleanup; YouTube/Spotify links are resolved by the media node |
-| **Live voice** | opt-in turn-based voice conversations: Discord PCM 鈫� Groq Whisper 鈫� the existing verified Nexus engine 鈫� Groq Orpheus female speech; bounded buffers, consent notice and no audio persistence |
+| **Live voice** | opt-in turn-based voice conversations: Discord PCM → Groq Whisper → the existing verified Nexus engine → Groq Orpheus female speech; bounded buffers, consent notice and no audio persistence |
 | **Rich responses** | ordinary conversation stays plain; substantial explanations and worked solutions use a plain introduction, focused embed and plain conclusion; retrieved HTTPS reference images appear only when a source supplies one; generated code uses fenced, copy-friendly embeds and attaches a complete file when it exceeds Discord's embed limit |
 | **API** | FastAPI app mirroring the same pipeline (`/chat` `/search` `/research` `/memory` `/tools` `/models` `/health`), returning grounding metadata so a web client can show a "verified" badge too |
 | **Safety** | prompt-injection framing for all quoted content, fabricated-citation removal, path-confined file reads, `@everyone` neutralisation on output, code-fence-safe message splitting, AST-only calculator |
@@ -108,16 +108,16 @@ Rules the pipeline follows:
 ### 2. Switch live, without restarting
 
 ```
-/nexus provider            鈫� list providers, availability, model, breaker state
-/nexus provider groq       鈫� switch for the rest of this session
-/nexus provider reset      鈫� clear failure counters
-/nexus models              鈫� re-read catalogues and repair model ids
-/nexus status              鈫� what is answering right now, and how grounded it is being
+/nexus provider            → list providers, availability, model, breaker state
+/nexus provider groq       → switch for the rest of this session
+/nexus provider reset      → clear failure counters
+/nexus models              → re-read catalogues and repair model ids
+/nexus status              → what is answering right now, and how grounded it is being
 ```
 
 ### 3. Change the personality
 
-`prompts/` - loaded per request, in order: `base.txt` 鈫� `personality.txt` 鈫� `creator.txt` 鈫� `accuracy.txt`, then a runtime block generated from the live process (clock, version, provider, tool inventory).
+`prompts/` - loaded per request, in order: `base.txt` → `personality.txt` → `creator.txt` → `accuracy.txt`, then a runtime block generated from the live process (clock, version, provider, tool inventory).
 
 ### 4. Add a brand-new agent (one file + two lines)
 
@@ -170,10 +170,10 @@ class MyAgentProvider(BaseProvider):
 ```
 
 ```python
-# ai/provider_manager.py  鈫� inside _register()
+# ai/provider_manager.py  → inside _register()
 self._add("myagent", MyAgentProvider)
 
-# ai/provider_manager.py  鈫� QUALITY_ORDER (where it sits in the fallback chain)
+# ai/provider_manager.py  → QUALITY_ORDER (where it sits in the fallback chain)
 QUALITY_ORDER = [..., "myagent", "ollama", "lmstudio"]
 ```
 
@@ -193,17 +193,17 @@ That's all: it appears in `/nexus provider`, participates in failover, is health
 | `/search <query> [tool]` | the raw evidence, before any model touches it |
 | `/sources` | what Nexus' last answer to you was built on |
 | `/verify <claim>` | checks one statement live: supported / only-one-place / sources disagree |
-| `/remember` 路 `/forget` 路 `/facts` | control over what it keeps about you (`/forget all` wipes it) |
-| `/tools` 路 `/version` 路 `/ping` | which sources are configured 路 which build is running 路 how fast |
+| `/remember` · `/forget` · `/facts` | control over what it keeps about you (`/forget all` wipes it) |
+| `/tools` · `/version` · `/ping` | which sources are configured · which build is running · how fast |
 | `/nexus status` | provider, grounded rate, cache, knowledge store, updater state |
 | `/nexus reverify [topic]` | re-check stored knowledge right now |
 | `/nexus accuracy [preset]` | `strict` / `balanced` / `fast` / `offline`, or fine-grained flags |
-| `/nexus tools` 路 `/nexus models` | per-tool health and cooldowns 路 re-read provider model lists |
-| `/nexus provider` 路 `/nexus knowledge` 路 `/nexus start-updating` | rotate providers 路 inspect the store 路 run a cycle |
+| `/nexus tools` · `/nexus models` | per-tool health and cooldowns · re-read provider model lists |
+| `/nexus provider` · `/nexus knowledge` · `/nexus start-updating` | rotate providers · inspect the store · run a cycle |
 
 Prefix equivalents `!ai`, `!memory`, `!status` work where slash commands don't.
 In a server, mention Nexus or reply directly to one of its messages. In a DM,
-send a normal message鈥攎entioning the bot is optional. Valid prefix commands are
+send a normal message—mentioning the bot is optional. Valid prefix commands are
 handled once and are not duplicated as AI conversation replies.
 
 ---
@@ -239,12 +239,18 @@ buffer and discarded after transcription. Transcribed text follows the normal
 Nexus conversation-memory policy; `VOICE_TRANSCRIPTS` separately controls
 whether a readable copy is posted in the command channel. Spoken turns are
 kept within Orpheus' 200-character request limit; the text copy can remain
-detailed.
+detailed. A configurable RMS gate rejects Discord silence/keepalive frames
+before transcription, and identical per-speaker transcripts are suppressed
+inside a short safety window. If Groq requires model-term approval, Nexus
+keeps listening active, preserves the generated text reply, and shows one
+actionable TTS notice instead of repeating the provider error every turn.
 
 Discord permits one voice connection per bot per guild, so music and live
-conversation switch modes cleanly rather than attempting to speak over each
-other. Different guilds remain independent. Full deployment and privacy notes
-are in [`docs/MEDIA.md`](docs/MEDIA.md).
+conversation switch modes through a shared per-guild handoff rather than
+opening competing clients. Music also probes each Lavalink node for LavaSrc,
+Spotify and modern YouTube support, and delays Now Playing cards past immediate
+source failures. Different guilds remain independent. Full deployment and
+privacy notes are in [`docs/MEDIA.md`](docs/MEDIA.md).
 
 ---
 
@@ -329,16 +335,21 @@ MUSIC_ENABLED=true
 LAVALINK_URI=http://your-lavalink-service:2333
 LAVALINK_PASSWORD=change-me
 MUSIC_DEFAULT_VOLUME=75
+MUSIC_SPOTIFY_FALLBACK=true
 
 # live voice (requires GROQ_API_KEY)
 VOICE_CHAT_ENABLED=true
 VOICE_STT_MODEL=whisper-large-v3-turbo
-VOICE_TTS_MODEL=canopylabs/orpheus-v1-english
-VOICE_TTS_VOICE=hannah
+VOICE_TTS_PROVIDER=groq
+GROQ_TTS_MODEL=canopylabs/orpheus-v1-english
+GROQ_TTS_VOICE=hannah
+VOICE_TTS_TEXT_FALLBACK=true
+VOICE_RMS_THRESHOLD=250
+VOICE_DUPLICATE_WINDOW_SECONDS=12
 ```
 
 The complete, deduplicated template is [`.env.example`](.env.example). It lists
-all 90 supported environment variables exactly once, including every direct
+the supported environment variables exactly once, including every direct
 provider, local provider, retrieval service, accuracy control, memory setting,
 media option and Render health option. Copy it to `.env`; never commit real
 tokens.
@@ -351,7 +362,7 @@ Full annotated list: [`.env.example`](.env.example). Reasoning per knob: [`docs/
 
 Ordered by accuracy/utility per unit of work. **None of these exist yet** - the tools marked "placeholder" above are the stubs they grow out of, and the pipeline already skips a stub instead of trusting it, which is why adding them is additive rather than a rewrite.
 
-### 1. Image understanding (vision) 鈥� next up
+### 1. Image understanding (vision) — next up
 
 - **User sees:** "what's in this screenshot?" answered with the UI text, the error, the chart's numbers - and which part is read vs inferred.
 - **How:** providers that support images get the bytes (`capabilities.vision`); `ai/engine.py` already passes attachments and refuses to guess when no vision provider is active. The missing piece is the multimodal message shape per provider.
@@ -366,7 +377,7 @@ Ordered by accuracy/utility per unit of work. **None of these exist yet** - the 
 
 ### 3. PDF: read, quote, and view
 
-- **User sees:** `/nexus pdf <url|attachment>` 鈫� per-page summary with page-number citations ("p.4: the method reports a 12% gain"), plus a rendered preview link; ask follow-ups grounded in that document.
+- **User sees:** `/nexus pdf <url|attachment>` → per-page summary with page-number citations ("p.4: the method reports a 12% gain"), plus a rendered preview link; ask follow-ups grounded in that document.
 - **How:** new `tools/pdf_reader.py`: extract text per page, index it as evidence so `SearchReport` citations point at `doc.pdf#page=4`, feed the ranked pages through the same compose/verify path.
 - **Depends on:** the **first new dependency** in this project (`pypdf` for text; optional `pdf2image` + `poppler` for actual rendered previews).
 - **Guardrail:** text is quoted-untrusted like the web scraper, size and page caps, no execution of embedded JS, and PDFs from the internet are labelled as unverified single-source documents.
@@ -380,5 +391,123 @@ Ordered by accuracy/utility per unit of work. **None of these exist yet** - the 
 
 ### 5. Image generation
 
-- **User sees:** `/imagine a lighthouse in a storm, watercolour` 鈫� an image posted back with the prompt it used and which provider/model made it.
-- **How:** `capabilities.image_generation`
+- **User sees:** `/imagine a lighthouse in a storm, watercolour` → an image posted back with the prompt it used and which provider/model made it.
+- **How:** `capabilities.image_generation` already exists for exactly this; add `tools/image_gen.py` + a `/generate` command, sending the result as `discord.File`.
+- **Depends on:** a provider key that generates (OpenAI images, Gemini/Imagen, Stability, Fal). A keyless path exists (e.g. `https://image.pollinations.ai/prompt/...`) but it returned HTTP 500 when checked from this environment, so **treat it as unverified** and don't build the default path on it.
+- **Guardrail:** no public-figure or real-person likenesses, no sexual/violent content, visible provenance that it is AI-generated, and a rate limit separate from chat so one user cannot burn the quota.
+
+### 6. Animation: images and video to GIF
+
+- **User sees:** `/gif from <url-or-attachment> 3s` → a small looped GIF; or "make these 4 frames into a gif".
+- **How:** `tools/media_render.py`. Still images → GIF is doable with **Pillow, already a dependency** (resize, frame delay, palette quantisation, size cap). Video → GIF needs `ffmpeg`, which is a system binary, so it must degrade to a clear "ffmpeg is not installed here" rather than fail silently - and clip sources must be user-supplied bytes or a licensed source, not scraped downloads.
+- **Depends on:** Pillow (have) · `ffmpeg` binary (optional, host-level) · *not* `yt-dlp`: pulling media out of platforms is a terms-of-service problem, so plan around user-uploaded files.
+- **Guardrail:** output size/duration caps, ephemeral temp files, and content moderation before posting to a public channel.
+
+### 7. Retrieval upgrades that make all of the above better
+
+- `BRAVE_API_KEY` / `GEMINI_API_KEY` wired into a labeled "eval set" (`tests/` question → expected source), so ranking changes are measured, not eyeballed.
+- Per-tool timeouts (weather 4 s, Wikipedia 8 s) and early exit once two domains agree.
+- `/nexus history` - the knowledge change log already exists in `knowledge_history`; nobody can read it yet.
+- Scheduled digests: "the thing you asked about changed" - watchlist, history and diffing are all built already.
+
+### Explicitly not planned
+
+Self-modifying code execution without a human review step. Scraping services whose terms forbid it. Silent writes to `config.py`.
+
+---
+
+## Running it
+
+```bash
+git clone https://github.com/izumi02-ui/Nexus-AI-Discord-Bot
+cd Nexus-AI-Discord-Bot
+
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+cp .env.example .env       # DISCORD_TOKEN, then a provider key if you want one
+python bot.py
+```
+
+**Zero keys still works.** With only `DISCORD_TOKEN`, Nexus answers from Ollama/LM Studio if either is running, uses the keyless evidence sources, and tells you when an answer is not verified.
+
+<details>
+<summary>Discord setup</summary>
+
+1. [Developer Portal](https://discord.com/developers/applications) → New Application → Bot.
+2. Enable **Message Content** and **Server Members** intents (privileged).
+3. Copy the token into `.env` as `DISCORD_TOKEN`.
+4. Invite with `bot` + `applications.commands` scopes and grant `Send Messages`,
+   `Read Message History`, `Embed Links`, `Connect`, `Speak` and `Use Voice
+   Activity`. Stage channels additionally require permission to request to speak.
+
+</details>
+
+### Render / free tier
+
+`Procfile` runs `python bot.py`; `GET /health` (and `/`) returns real state -
+version, provider, model, grounded rate, tool count, updater cycle, music node
+and voice readiness - for the platform's health checks. The knowledge store
+lives in `data/nexus.db` (SQLite, WAL), so a sleeping instance wakes up still
+knowing what it verified and when it must re-check it. Mount a disk or sync the
+file if you want memory to survive a rebuild.
+
+Music needs a second Render service built from `deploy/lavalink/`. Keep its
+`LAVALINK_PASSWORD` identical to the bot service, and point the bot's
+`LAVALINK_URI` at that service. A Render free web service may sleep and is not
+ideal for uninterrupted voice; use a continuously running instance for a
+public music bot. See [`docs/MEDIA.md`](docs/MEDIA.md) for the exact fields.
+
+---
+
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q          # fully offline regression suite
+```
+
+`tests/conftest.py` blocks outbound HTTP and points the database at a temp file, so a red test means a **policy regression**, not a flaky API. Coverage: routing decisions, freshness classification, ranking and cross-check, the verifier's link/number/excuse rules, prompt assembly and budget, the knowledge store, cache staleness, the updater's confirm/correct/refuse policy, the API shape, Discord output safety.
+
+---
+
+## Project layout
+
+```
+ai/        engine, router, providers/, conversation manager, verifier, memory extractor,
+           model catalog, provider manager, tool registry
+search/    freshness policy, cache, ranking + cross-check, evidence report, query utils
+tools/     one module per external source; TTLs, keywords, health, honest failures
+core/      updater: the self-update cycle (runtime facts, probes, re-verify, maintenance)
+database/  SQLite: profiles, memory, facts, verified knowledge + history, tool health
+commands/  Discord cogs: chat, memory, admin, utility, music, live voice
+media/     Lavalink helpers, voice buffering, Groq speech, Discord DAVE guard
+prompts/   base · personality · creator · accuracy  (loaded per request)
+api/       FastAPI surface over the same engine
+utils/     settings, prompt loader, formatting, time, permissions, cooldowns, calculator
+tests/     offline suite
+deploy/    Lavalink v4 Docker service and pinned plugin configuration
+docs/      ARCHITECTURE · ACCURACY · MEDIA · ROADMAP · SYSTEM_DESIGN · VISION
+data/      the SQLite store (git-ignored)
+```
+
+Deeper: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (request path, layer rules,
+failure model) · [`docs/ACCURACY.md`](docs/ACCURACY.md) (policy and knobs) ·
+[`docs/MEDIA.md`](docs/MEDIA.md) (voice/music deployment) ·
+[`docs/ROADMAP.md`](docs/ROADMAP.md) (what's next, in build order).
+
+---
+
+## Notes on honesty
+
+- This README describes the code as it is. Placeholder tools are listed as placeholders. The image-generation endpoint is listed as unverified because it could not be verified from here.
+- Retrieval quality is bounded by what a keyless bot may use. Add `BRAVE_API_KEY` or `GEMINI_API_KEY` for materially better coverage of "what happened today".
+- Nexus verifies **against its sources**. If every result page repeats the same wrong number, it reports that number as corroborated - which is why disagreements are surfaced instead of averaged.
+- The verifier judges links and numbers mechanically; it cannot tell whether an *explanation* is subtly wrong. Complex reasoning still needs a human.
+- This sandbox had no model access, so the end-to-end pipeline has been exercised against stubbed providers and fixture evidence, not a live LLM. Run it once with a real key before trusting the numbers in a deploy.
+
+---
+
+Creator: **Izumi** (Rohit / IZ) · Special user: **Ash** (Ashey)
+
+*Build once. Extend forever. Never assert what you cannot check.*
