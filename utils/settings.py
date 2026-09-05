@@ -94,6 +94,9 @@ from config import (
     VOICE_SILENCE_SECONDS,
     VOICE_MIN_UTTERANCE_SECONDS,
     VOICE_MAX_UTTERANCE_SECONDS,
+    VOICE_RMS_THRESHOLD,
+    VOICE_DUPLICATE_WINDOW_SECONDS,
+    VOICE_ERROR_COOLDOWN_SECONDS,
     VOICE_MAX_REPLY_CHARS,
     VOICE_TRANSCRIPTS,
     FFMPEG_PATH,
@@ -183,6 +186,9 @@ class Settings:
         self.voice_silence_seconds = VOICE_SILENCE_SECONDS
         self.voice_min_utterance_seconds = VOICE_MIN_UTTERANCE_SECONDS
         self.voice_max_utterance_seconds = VOICE_MAX_UTTERANCE_SECONDS
+        self.voice_rms_threshold = VOICE_RMS_THRESHOLD
+        self.voice_duplicate_window_seconds = VOICE_DUPLICATE_WINDOW_SECONDS
+        self.voice_error_cooldown_seconds = VOICE_ERROR_COOLDOWN_SECONDS
         self.voice_max_reply_chars = VOICE_MAX_REPLY_CHARS
         self.voice_transcripts = VOICE_TRANSCRIPTS
         self.ffmpeg_path = FFMPEG_PATH
