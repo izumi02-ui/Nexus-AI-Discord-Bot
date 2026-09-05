@@ -82,7 +82,7 @@ class NexusBot(commands.Bot):
             status=discord.Status.idle,
             activity=discord.Activity(
                 type=discord.ActivityType.listening,
-                name="/ask  •  mention me",
+                name="/ask • /music • /voice",
             ),
         )
 
@@ -201,6 +201,8 @@ def latency_ms(value) -> int | None:
 
 async def health_check(request):
     health = engine.health()
+    music_cog = bot.get_cog("MusicCommands")
+    voice_cog = bot.get_cog("VoiceCommands")
 
     return web.json_response(
         {
@@ -220,6 +222,10 @@ async def health_check(request):
                 "interval_seconds": int(settings.self_update_interval),
             },
             "latency_ms": latency_ms(bot.latency),
+            "media": {
+                "music": music_cog.health() if music_cog else {"ready": False},
+                "voice": voice_cog.health() if voice_cog else {"enabled": False},
+            },
         }
     )
 
