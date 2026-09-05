@@ -1,7 +1,7 @@
 # Nexy Music and Live Voice
 
 **Version:** Nexus 1.4.0-alpha.V4
-**Status:** shipped on the `Nexus-V4` branch
+**Status:** shipped on the `Nexus-V3` branch
 
 Nexus has two voice-channel modes. Music uses a Lavalink v4 node so decoding
 and streaming do not block the bot process. Live conversation receives a
