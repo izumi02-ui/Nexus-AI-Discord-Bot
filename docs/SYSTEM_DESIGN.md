@@ -1,7 +1,7 @@
 # 🌌 Project Nexus — System Design
 
 **Version:** Nexus 1.4.0-alpha.V4
-**Status:** implementation reference for the `Nexus-V3` branch
+**Status:** implementation reference for the `Nexus-V4` branch
 
 ---
 
@@ -199,26 +199,34 @@ Each guild has its own queue, playback lock and control state. Search terms,
 direct URLs and playlists resolve on Lavalink; the YouTube and LavaSrc plugins
 provide YouTube search and Spotify-to-playable-source matching. The bot releases
 the player when the channel becomes empty or its inactivity timer expires.
+Node capabilities are probed at startup/reconnect; immediate track exceptions
+cancel pending Now Playing cards, retain full structured logs, and may use one
+deduplicated Spotify-to-YouTube fallback before the queue advances.
 
 Live voice uses `commands/voice.py` and `media/`:
 
 ```text
-Discord decoded PCM → bounded turn buffer → Groq Whisper STT
+Discord decoded PCM → RMS activity gate → bounded turn buffer → Groq Whisper STT
                     → ai/engine.py → Groq Orpheus TTS → Discord playback
 ```
 
 This is turn-based, near-real-time conversation, not simultaneous full duplex.
 The session ignores bot audio while Nexus speaks, discards PCM after
 transcription, and sends the resulting text through the normal Nexus
-conversation-memory policy. Posting a text mirror is independently configurable.
+conversation-memory policy. Silence cannot open a turn, repeated per-speaker
+transcripts are suppressed, and queued PCM is cleared after a generic failed
+turn. A TTS-only access denial is different: listening remains active and the
+generated response falls back to text without repeating the same warning.
+Posting a text mirror is independently configurable.
 Starting a session requires a consent confirmation. A compatibility guard
 supplies inbound DAVE decryption for the pinned alpha voice-receive extension
 and refuses to start if the expected Discord voice stack is unavailable.
 
-Discord supports one bot voice connection per guild. Starting music stops live
-conversation in that guild and starting live conversation disconnects music;
-other guilds are unaffected. See [MEDIA.md](MEDIA.md) for deployment and the
-complete command list.
+Discord supports one bot voice connection per guild. A shared coordinator locks
+mode handoffs, so starting music stops live conversation in that guild and
+starting live conversation disconnects music without creating competing voice
+clients; other guilds are unaffected. See [MEDIA.md](MEDIA.md) for deployment
+and the complete command list.
 
 ---
 
