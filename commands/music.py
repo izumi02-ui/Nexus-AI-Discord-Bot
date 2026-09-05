@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import time
 from collections import defaultdict
 
 import discord
@@ -10,7 +12,20 @@ import wavelink
 from discord import app_commands
 from discord.ext import commands
 
+from media.audio_coordinator import audio_coordinator
 from media.common import format_duration, markdown_link, truncate
+from media.music_resolver import (
+    LavalinkFailure,
+    NodeCapabilities,
+    dedupe_tracks,
+    extra_value,
+    fallback_search_query,
+    is_youtube_url,
+    parse_spotify_request,
+    select_fallback_track,
+    track_identity,
+    track_source_name,
+)
 from utils.logger import logger
 from utils.permissions import is_admin
 from utils.settings import settings
@@ -113,6 +128,12 @@ class MusicCommands(commands.Cog):
         self.node_error: str | None = None
         self.announce_channels: dict[int, int] = {}
         self.locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
+        self.node_capabilities: dict[str, NodeCapabilities] = {}
+        self.announcement_tasks: dict[int, tuple[str, asyncio.Task]] = {}
+        self.failure_advance_tasks: dict[int, tuple[str, asyncio.Task]] = {}
+        self.fallback_attempts: defaultdict[int, set[str]] = defaultdict(set)
+        self.last_failure_notice: dict[int, tuple[str, float]] = {}
+        self.loop_modes_to_restore: dict[int, wavelink.QueueMode] = {}
 
     async def cog_load(self):
         if not settings.music_enabled:
@@ -134,6 +155,7 @@ class MusicCommands(commands.Cog):
                 retries=5,
             )
             await wavelink.Pool.connect(nodes=[node], client=self.bot)
+            await self.refresh_node_capabilities(node)
             self.node_error = None
             logger.info("Lavalink node %s connected.", settings.lavalink_identifier)
         except Exception as error:  # noqa: BLE001 - chat must still start
@@ -141,6 +163,14 @@ class MusicCommands(commands.Cog):
             logger.warning("Lavalink unavailable: %s", error)
 
     async def cog_unload(self):
+        for _track_key, task in self.announcement_tasks.values():
+            task.cancel()
+        self.announcement_tasks.clear()
+        for _track_key, task in self.failure_advance_tasks.values():
+            task.cancel()
+        self.failure_advance_tasks.clear()
+        for guild_id in list(self.announce_channels):
+            self.release_guild(guild_id)
         try:
             await wavelink.Pool.close()
         except Exception:  # noqa: BLE001
@@ -149,14 +179,92 @@ class MusicCommands(commands.Cog):
     def health(self) -> dict:
         nodes = list(wavelink.Pool.nodes.values())
         ready = any(node.status is wavelink.NodeStatus.CONNECTED for node in nodes)
+        capabilities = self._preferred_capabilities(nodes)
         return {
             "enabled": settings.music_enabled,
             "configured": bool(settings.lavalink_uri and settings.lavalink_password),
             "ready": ready,
             "nodes": len(nodes),
             "players": sum(len(node.players) for node in nodes),
+            "capabilities_probed": capabilities.probed,
+            "lavasrc_loaded": capabilities.lavasrc_loaded if capabilities.probed else None,
+            "spotify_source": capabilities.spotify_available if capabilities.probed else None,
+            "youtube_plugin": (
+                capabilities.youtube_plugin_loaded if capabilities.probed else None
+            ),
+            "youtube_source": capabilities.youtube_available if capabilities.probed else None,
+            "plugins": [
+                f"{plugin.name}:{plugin.version}" for plugin in capabilities.plugins
+            ],
+            "capability_error": capabilities.error,
             "error": self.node_error,
         }
+
+    @staticmethod
+    def _node_identifier(node) -> str:
+        return str(getattr(node, "identifier", settings.lavalink_identifier))
+
+    def _preferred_capabilities(self, nodes=None) -> NodeCapabilities:
+        nodes = nodes if nodes is not None else list(wavelink.Pool.nodes.values())
+        for node in nodes:
+            identifier = self._node_identifier(node)
+            capabilities = self.node_capabilities.get(identifier)
+            if capabilities is not None and capabilities.probed:
+                return capabilities
+        if nodes:
+            identifier = self._node_identifier(nodes[0])
+            return self.node_capabilities.get(
+                identifier, NodeCapabilities.unknown(identifier)
+            )
+        return NodeCapabilities.unknown(settings.lavalink_identifier, self.node_error)
+
+    def capabilities_for(self, node) -> NodeCapabilities:
+        identifier = self._node_identifier(node)
+        return self.node_capabilities.get(
+            identifier, NodeCapabilities.unknown(identifier)
+        )
+
+    async def refresh_node_capabilities(self, node) -> NodeCapabilities:
+        """Read authenticated Lavalink info without logging credentials."""
+        identifier = self._node_identifier(node)
+        try:
+            info = await asyncio.wait_for(
+                node.fetch_info(),
+                timeout=settings.music_node_probe_timeout,
+            )
+            capabilities = NodeCapabilities.from_info(identifier, info)
+        except Exception as error:  # noqa: BLE001 - diagnostics must not stop music startup
+            capabilities = NodeCapabilities.unknown(identifier, str(error)[:500])
+            logger.warning(
+                "Could not inspect Lavalink node capabilities node=%s error_type=%s error=%s",
+                identifier,
+                type(error).__name__,
+                str(error)[:500],
+            )
+        self.node_capabilities[identifier] = capabilities
+
+        if capabilities.probed:
+            plugins = ", ".join(
+                f"{plugin.name}:{plugin.version}" for plugin in capabilities.plugins
+            ) or "none"
+            sources = ", ".join(capabilities.source_managers) or "none"
+            logger.info(
+                "Lavalink capabilities node=%s plugins=%s sources=%s",
+                identifier,
+                plugins,
+                sources,
+            )
+            if not capabilities.youtube_plugin_loaded:
+                logger.warning(
+                    "Lavalink node %s does not report the modern YouTube plugin.",
+                    identifier,
+                )
+            if not capabilities.spotify_available:
+                logger.warning(
+                    "Lavalink node %s does not report LavaSrc Spotify support.",
+                    identifier,
+                )
+        return capabilities
 
     def ensure_ready(self) -> None:
         if not settings.music_enabled:
@@ -217,6 +325,16 @@ class MusicCommands(commands.Cog):
 
     def release_guild(self, guild_id: int) -> None:
         self.announce_channels.pop(guild_id, None)
+        pending = self.announcement_tasks.pop(guild_id, None)
+        if pending is not None:
+            pending[1].cancel()
+        advance = self.failure_advance_tasks.pop(guild_id, None)
+        if advance is not None:
+            advance[1].cancel()
+        self.fallback_attempts.pop(guild_id, None)
+        self.last_failure_notice.pop(guild_id, None)
+        self.loop_modes_to_restore.pop(guild_id, None)
+        audio_coordinator.release(guild_id, "music")
 
     async def stop_guild(self, guild_id: int, *, disconnect: bool = True) -> bool:
         """Stop a guild player during explicit leave or media-mode handoff."""
@@ -238,28 +356,64 @@ class MusicCommands(commands.Cog):
         self.ensure_ready()
         channel = self.user_channel(interaction)
         guild = interaction.guild
-        existing = guild.voice_client
 
-        if isinstance(existing, wavelink.Player) and existing.connected:
-            self.ensure_same_channel(interaction, existing)
-            return existing
+        async with audio_coordinator.lock_for(guild.id):
+            existing = guild.voice_client
 
-        if existing is not None:
-            # Live conversation and music use different voice protocols. Stop
-            # the old mode cleanly before opening the Lavalink connection.
-            voice_cog = self.bot.get_cog("VoiceCommands")
-            if voice_cog is not None:
-                await voice_cog.stop_guild(guild.id, disconnect=True)
-            else:
-                await existing.disconnect(force=True)
+            if isinstance(existing, wavelink.Player) and existing.connected:
+                self.ensure_same_channel(interaction, existing)
+                audio_coordinator.claim(guild.id, "music")
+                return existing
 
-        player: wavelink.Player = await channel.connect(
-            cls=wavelink.Player,
-            self_deaf=True,
-        )
-        player.autoplay = wavelink.AutoPlayMode.partial
-        await player.set_volume(settings.music_default_volume)
-        return player
+            if existing is not None:
+                # Live conversation and music use different voice protocols.
+                # The shared lock makes this handoff atomic for the guild.
+                voice_cog = self.bot.get_cog("VoiceCommands")
+                if voice_cog is not None:
+                    await voice_cog.stop_guild(guild.id, disconnect=True)
+                else:
+                    await existing.disconnect(force=True)
+
+            player: wavelink.Player = await channel.connect(
+                cls=wavelink.Player,
+                self_deaf=True,
+            )
+            player.autoplay = wavelink.AutoPlayMode.partial
+            await player.set_volume(settings.music_default_volume)
+            audio_coordinator.claim(guild.id, "music")
+            return player
+
+    async def ensure_player_voice_ready(self, player: wavelink.Player) -> None:
+        """Validate the Discord and Lavalink sides before starting a source."""
+        if not player.connected or player.channel is None or player.guild is None:
+            raise MusicError("The music voice connection is not ready. Rejoin and try again.")
+        if player.guild.voice_client is not player:
+            raise MusicError("This server's music player was replaced. Use `/music join` again.")
+
+        state = None
+        for _ in range(5):
+            member = player.guild.me
+            state = getattr(member, "voice", None) if member is not None else None
+            if state is not None and state.channel is not None:
+                break
+            await asyncio.sleep(0.1)
+
+        if state is None or state.channel is None or state.channel.id != player.channel.id:
+            raise MusicError("Discord has not confirmed Nexy's voice connection yet. Try again.")
+        if any(
+            bool(getattr(state, field, False))
+            for field in ("mute", "self_mute", "suppress")
+        ):
+            raise MusicError(
+                "Nexy is muted or suppressed in this voice channel. Unmute the bot, "
+                "then try again."
+            )
+        if audio_coordinator.state_for(player.guild.id).mode != "music":
+            raise MusicError("Another Nexus audio mode owns this server's voice connection.")
+
+    async def play_track(self, player: wavelink.Player, track, **kwargs) -> None:
+        await self.ensure_player_voice_ready(player)
+        await player.play(track, **kwargs)
 
     async def respond_error(self, interaction: discord.Interaction, error: Exception):
         content = f"⚠️ {str(error)[:1200]}"
@@ -283,15 +437,103 @@ class MusicCommands(commands.Cog):
         )
         await self.respond_error(interaction, MusicError("Music command failed. Check Render logs."))
 
-    def add_requester(self, tracks: list[wavelink.Playable], user) -> None:
+    async def resolve_tracks(self, player: wavelink.Player, query: str):
+        """Resolve one request through the exact capabilities of its node."""
+        query = query.strip()
+        spotify = parse_spotify_request(query)
+        capabilities = self.capabilities_for(player.node)
+
+        if spotify and capabilities.probed and not capabilities.lavasrc_loaded:
+            raise MusicError(
+                f"This is a Spotify {spotify.kind} URL, but node "
+                f"`{capabilities.identifier}` does not report the LavaSrc plugin. "
+                "Install/configure LavaSrc on the Lavalink service and restart it."
+            )
+        if spotify and capabilities.probed and not capabilities.spotify_available:
+            raise MusicError(
+                f"LavaSrc is present, but Spotify {spotify.kind} resolution is not "
+                "available. Enable `plugins.lavasrc.sources.spotify`, set both "
+                "Spotify credentials on the Lavalink service, and restart it."
+            )
+
+        needs_youtube = not spotify and (
+            is_youtube_url(query) or "://" not in query
+        )
+        if needs_youtube and capabilities.probed and not capabilities.youtube_available:
+            raise MusicError(
+                "The connected Lavalink node does not report a YouTube source. "
+                "Load the modern `youtube-plugin`, keep built-in YouTube disabled, "
+                "and restart Lavalink."
+            )
+
+        try:
+            found = await wavelink.Playable.search(query, node=player.node)
+        except Exception as error:  # noqa: BLE001 - convert node details to a safe message
+            logger.warning(
+                "Lavalink load failed node=%s request_type=%s error_type=%s error=%s",
+                capabilities.identifier,
+                f"spotify-{spotify.kind}" if spotify else "youtube-or-url",
+                type(error).__name__,
+                str(error)[:800],
+            )
+            if spotify:
+                if not capabilities.probed:
+                    raise MusicError(
+                        f"The Spotify {spotify.kind} could not be resolved, and Nexus "
+                        "could not confirm this node's plugins. Run `/music status`; "
+                        "the Lavalink service must load LavaSrc with valid Spotify credentials."
+                    ) from error
+                raise MusicError(
+                    f"LavaSrc is loaded, but it could not resolve this Spotify "
+                    f"{spotify.kind}. Check the Lavalink service's Spotify credentials "
+                    "and LavaSrc logs."
+                ) from error
+            if is_youtube_url(query) and capabilities.probed and not capabilities.youtube_plugin_loaded:
+                raise MusicError(
+                    "This YouTube URL failed and the node does not report the modern "
+                    "YouTube plugin. Install/enable it and restart Lavalink."
+                ) from error
+            raise MusicError(
+                "Lavalink could not load that source. Check `/music status` and the "
+                "Lavalink source/plugin logs."
+            ) from error
+
+        if not found:
+            if spotify:
+                raise MusicError(
+                    f"LavaSrc returned no playable matches for that Spotify {spotify.kind}."
+                )
+            raise MusicError("No playable tracks matched that search.")
+
+        is_playlist = isinstance(found, wavelink.Playlist)
+        tracks = dedupe_tracks(list(found) if is_playlist else [found[0]])
+        if not tracks:
+            raise MusicError("The resolver returned only duplicate or unusable tracks.")
+        return found, is_playlist, tracks, spotify
+
+    def add_requester(
+        self,
+        tracks: list[wavelink.Playable],
+        user,
+        *,
+        origin_query: str,
+        spotify_kind: str | None,
+    ) -> None:
         for track in tracks:
             track.extras = {
                 "requester_id": user.id,
                 "requester_name": user.display_name,
+                "origin_query": origin_query if spotify_kind else "",
+                "origin_kind": f"spotify-{spotify_kind}" if spotify_kind else "direct",
+                "fallback_attempted": False,
             }
 
-    def now_playing_embed(self, player: wavelink.Player) -> discord.Embed:
-        track = player.current
+    def now_playing_embed(
+        self,
+        player: wavelink.Player,
+        track: wavelink.Playable | None = None,
+    ) -> discord.Embed:
+        track = track or player.current
         if track is None:
             return discord.Embed(description="Nothing is playing.", colour=MUSIC_COLOUR)
 
@@ -309,7 +551,11 @@ class MusicCommands(commands.Cog):
         embed.set_footer(text=f"{settings.nexus_nickname} Music • /music queue")
         return embed
 
-    async def announce_now_playing(self, player: wavelink.Player) -> None:
+    async def announce_now_playing(
+        self,
+        player: wavelink.Player,
+        track: wavelink.Playable | None = None,
+    ) -> None:
         if not settings.music_announce_tracks or player.guild is None:
             return
 
@@ -321,11 +567,47 @@ class MusicCommands(commands.Cog):
 
         try:
             await channel.send(
-                embed=self.now_playing_embed(player),
+                embed=self.now_playing_embed(player, track),
                 view=MusicControls(self, player.guild.id),
             )
         except discord.HTTPException as error:
             logger.warning("Could not announce track in guild %s: %s", player.guild.id, error)
+
+    def cancel_pending_announcement(
+        self,
+        guild_id: int,
+        track_key: str | None = None,
+    ) -> None:
+        pending = self.announcement_tasks.get(guild_id)
+        if pending is None or (track_key is not None and pending[0] != track_key):
+            return
+        self.announcement_tasks.pop(guild_id, None)
+        pending[1].cancel()
+
+    async def announce_after_start(
+        self,
+        player: wavelink.Player,
+        track: wavelink.Playable,
+    ) -> None:
+        """Suppress false Now Playing cards for immediate source failures."""
+        guild_id = player.guild.id
+        track_key = track_identity(track)
+        try:
+            await asyncio.sleep(settings.music_start_grace_seconds)
+            current = player.current
+            if (
+                not player.connected
+                or current is None
+                or track_identity(current) != track_key
+            ):
+                return
+            await self.announce_now_playing(player, track)
+        except asyncio.CancelledError:
+            return
+        finally:
+            pending = self.announcement_tasks.get(guild_id)
+            if pending is not None and pending[0] == track_key:
+                self.announcement_tasks.pop(guild_id, None)
 
     async def enqueue(
         self,
@@ -338,19 +620,9 @@ class MusicCommands(commands.Cog):
         player = await self.connect_player(interaction)
 
         async with self.locks[interaction.guild_id]:
-            try:
-                found = await wavelink.Playable.search(query.strip())
-            except Exception as error:  # noqa: BLE001
-                raise MusicError(
-                    "I could not load that track. For Spotify links, the Lavalink "
-                    "node must have LavaSrc configured."
-                ) from error
-
-            if not found:
-                raise MusicError("No playable tracks matched that search.")
-
-            is_playlist = isinstance(found, wavelink.Playlist)
-            tracks = list(found) if is_playlist else [found[0]]
+            found, is_playlist, tracks, spotify = await self.resolve_tracks(
+                player, query
+            )
             capacity = settings.music_max_queue - player.queue.count
 
             if player.current is None:
@@ -360,13 +632,19 @@ class MusicCommands(commands.Cog):
                 raise MusicError(f"The queue limit is {settings.music_max_queue} tracks.")
 
             tracks = tracks[:capacity]
-            self.add_requester(tracks, interaction.user)
+            self.add_requester(
+                tracks,
+                interaction.user,
+                origin_query=query.strip(),
+                spotify_kind=spotify.kind if spotify else None,
+            )
             self.announce_channels[interaction.guild_id] = interaction.channel_id
 
             started = None
             if player.current is None:
                 started = tracks.pop(0)
-                await player.play(
+                await self.play_track(
+                    player,
                     started,
                     volume=settings.music_default_volume,
                     populate=player.autoplay is wavelink.AutoPlayMode.enabled,
@@ -387,13 +665,157 @@ class MusicCommands(commands.Cog):
             else:
                 chosen = started or tracks[0]
                 detail = (
-                    f"Playing {markdown_link(chosen.title, chosen.uri)}."
+                    f"Loading {markdown_link(chosen.title, chosen.uri)}."
                     if started
                     else f"Queued {markdown_link(chosen.title, chosen.uri)}"
                     + (" next." if next_up else f" at position **{player.queue.count}**.")
                 )
 
         await interaction.followup.send(detail)
+
+    async def try_spotify_fallback(
+        self,
+        player: wavelink.Player,
+        failed_track: wavelink.Playable,
+    ) -> str | None:
+        """Try one metadata-based YouTube replacement for a failed mirror."""
+        if not settings.music_spotify_fallback:
+            return None
+
+        origin_kind = str(extra_value(failed_track, "origin_kind", ""))
+        if not origin_kind.startswith("spotify-"):
+            return None
+        if bool(extra_value(failed_track, "fallback_attempted", False)):
+            return None
+
+        origin_query = str(extra_value(failed_track, "origin_query", ""))
+        attempt_key = f"{origin_query}|{track_identity(failed_track)}"
+        attempts = self.fallback_attempts[player.guild.id]
+        if attempt_key in attempts:
+            return None
+        if len(attempts) >= 500:
+            attempts.clear()
+        attempts.add(attempt_key)
+
+        capabilities = self.capabilities_for(player.node)
+        if capabilities.probed and not capabilities.youtube_available:
+            return None
+
+        query = fallback_search_query(failed_track)
+        if not query:
+            return None
+
+        try:
+            found = await wavelink.Playable.search(
+                query,
+                source="ytsearch",
+                node=player.node,
+            )
+            if not found:
+                return None
+            candidates = dedupe_tracks(
+                list(found) if isinstance(found, wavelink.Playlist) else list(found)
+            )
+            if not candidates:
+                return None
+
+            failed_key = track_identity(failed_track)
+            replacement = select_fallback_track(candidates, failed_track)
+            if replacement is None:
+                return None
+            replacement.extras = {
+                "requester_id": extra_value(failed_track, "requester_id", 0),
+                "requester_name": extra_value(failed_track, "requester_name", "Unknown"),
+                "origin_query": origin_query,
+                "origin_kind": origin_kind,
+                "fallback_attempted": True,
+            }
+
+            await self.ensure_player_voice_ready(player)
+            current = player.current
+            if current is None:
+                await self.play_track(player, replacement)
+                return "playing"
+
+            # If the failed source has not ended yet, TrackEnd will consume this
+            # first. If AutoPlay already advanced, it remains next; either way,
+            # the existing queue keeps its relative order.
+            player.queue.put_at(0, replacement)
+            return "queued"
+        except Exception as error:  # noqa: BLE001 - original queue must keep moving
+            logger.warning(
+                "Spotify playback fallback failed guild=%s node=%s error_type=%s error=%s",
+                player.guild.id,
+                self._node_identifier(player.node),
+                type(error).__name__,
+                str(error)[:800],
+            )
+            return None
+
+    def schedule_failed_track_advance(
+        self,
+        player: wavelink.Player,
+        failed_track: wavelink.Playable,
+    ) -> None:
+        """Nudge only a still-stuck failed track after Lavalink's end event window."""
+        guild_id = player.guild.id
+        failed_key = track_identity(failed_track)
+        previous = self.failure_advance_tasks.pop(guild_id, None)
+        if previous is not None:
+            previous[1].cancel()
+
+        async def advance() -> None:
+            try:
+                await asyncio.sleep(1)
+                current = player.current
+                if (
+                    player.connected
+                    and current is not None
+                    and track_identity(current) == failed_key
+                ):
+                    await player.skip(force=True)
+            except asyncio.CancelledError:
+                return
+            except Exception as error:  # noqa: BLE001 - keep event handling alive
+                logger.warning(
+                    "Could not advance failed track guild=%s node=%s error=%s",
+                    guild_id,
+                    self._node_identifier(player.node),
+                    str(error)[:500],
+                )
+            finally:
+                pending = self.failure_advance_tasks.get(guild_id)
+                if pending is not None and pending[0] == failed_key:
+                    self.failure_advance_tasks.pop(guild_id, None)
+
+        task = asyncio.create_task(
+            advance(),
+            name=f"nexy-failed-track-{guild_id}",
+        )
+        self.failure_advance_tasks[guild_id] = (failed_key, task)
+
+    async def send_failure_notice(
+        self,
+        guild_id: int,
+        track_key: str,
+        message: str,
+    ) -> None:
+        """Send one concise failure for duplicate Lavalink exception events."""
+        now = time.monotonic()
+        previous = self.last_failure_notice.get(guild_id)
+        if previous is not None and previous[0] == track_key and now - previous[1] < 15:
+            return
+        self.last_failure_notice[guild_id] = (track_key, now)
+
+        channel_id = self.announce_channels.get(guild_id)
+        channel = self.bot.get_channel(channel_id) if channel_id else None
+        if channel is None:
+            return
+        with contextlib.suppress(discord.HTTPException):
+            await channel.send(
+                message,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
 
     @music.command(name="join", description="Join your voice channel.")
     async def join(self, interaction: discord.Interaction):
@@ -453,7 +875,7 @@ class MusicCommands(commands.Cog):
         history.delete(history.count - 1)
         if current is not None:
             player.queue.put_at(0, current)
-        await player.play(target, add_history=True)
+        await self.play_track(player, target, add_history=True)
         await interaction.response.send_message(f"Playing **{truncate(target.title, 80)}** again.")
 
     @music.command(name="replay", description="Restart the current track.")
@@ -556,7 +978,7 @@ class MusicCommands(commands.Cog):
         target = player.queue.get_at(position - 1)
         for _ in range(position):
             player.queue.delete(0)
-        await player.play(target)
+        await self.play_track(player, target)
         await interaction.response.send_message(f"Jumped to **{truncate(target.title, 80)}**.")
 
     @music.command(name="shuffle", description="Randomize the upcoming queue.")
@@ -588,6 +1010,9 @@ class MusicCommands(commands.Cog):
             "queue": wavelink.QueueMode.loop_all,
         }
         player.queue.mode = modes[mode.value]
+        # An explicit user choice takes precedence over a pending automatic
+        # restore after a failed looped track.
+        self.loop_modes_to_restore.pop(interaction.guild_id, None)
         await interaction.response.send_message(f"Loop mode set to **{mode.name}**.")
 
     @music.command(name="volume", description="Set playback volume from 0 to 200 percent.")
@@ -657,11 +1082,29 @@ class MusicCommands(commands.Cog):
     async def status(self, interaction: discord.Interaction):
         health = self.health()
         player = interaction.guild.voice_client
+
+        def capability(value, ready: str, missing: str) -> str:
+            if value is None:
+                return "not confirmed"
+            return ready if value else missing
+
         lines = [
             f"- feature: **{'enabled' if health['enabled'] else 'disabled'}**",
             f"- Lavalink: **{'connected' if health['ready'] else 'not connected'}**",
             f"- node: `{settings.lavalink_identifier}` · {health['nodes']} configured",
             f"- active players: **{health['players']}**",
+            "- LavaSrc: **"
+            + capability(health["lavasrc_loaded"], "loaded", "missing")
+            + "**",
+            "- Spotify resolution: **"
+            + capability(health["spotify_source"], "ready", "unavailable")
+            + "**",
+            "- modern YouTube plugin: **"
+            + capability(health["youtube_plugin"], "loaded", "missing/legacy")
+            + "**",
+            "- YouTube source: **"
+            + capability(health["youtube_source"], "ready", "unavailable")
+            + "**",
         ]
         if isinstance(player, wavelink.Player):
             lines.extend(
@@ -672,6 +1115,8 @@ class MusicCommands(commands.Cog):
             )
         if health["error"]:
             lines.append(f"- issue: {health['error'][:500]}")
+        if health["capability_error"]:
+            lines.append(f"- capability probe: {health['capability_error'][:500]}")
         await interaction.response.send_message(
             embed=discord.Embed(
                 title="Nexy Music Status",
@@ -704,19 +1149,152 @@ class MusicCommands(commands.Cog):
 
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
-        if payload.player is not None:
-            await self.announce_now_playing(payload.player)
+        player = payload.player
+        track = getattr(payload, "track", None)
+        if player is None or player.guild is None or track is None:
+            return
+
+        guild_id = player.guild.id
+        if player.guild.voice_client is not player or not player.connected:
+            logger.info(
+                "Ignored stale Lavalink TrackStart guild=%s node=%s track=%s",
+                guild_id,
+                self._node_identifier(player.node),
+                track_identity(track),
+            )
+            return
+
+        restore_mode = self.loop_modes_to_restore.pop(guild_id, None)
+        if restore_mode is not None and player.queue.mode is wavelink.QueueMode.normal:
+            player.queue.mode = restore_mode
+        audio_coordinator.claim(guild_id, "music")
+        self.cancel_pending_announcement(guild_id)
+        task = asyncio.create_task(
+            self.announce_after_start(player, track),
+            name=f"nexy-now-playing-{guild_id}",
+        )
+        self.announcement_tasks[guild_id] = (track_identity(track), task)
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
+        player = payload.player
+        track = getattr(payload, "track", None)
+        if player is None or player.guild is None:
+            return
+        self.cancel_pending_announcement(
+            player.guild.id,
+            track_identity(track) if track is not None else None,
+        )
+        if track is not None:
+            advance = self.failure_advance_tasks.get(player.guild.id)
+            if advance is not None and advance[0] == track_identity(track):
+                self.failure_advance_tasks.pop(player.guild.id, None)
+                advance[1].cancel()
 
     @commands.Cog.listener()
     async def on_wavelink_track_exception(self, payload: wavelink.TrackExceptionEventPayload):
         player = payload.player
-        if player is None or player.guild is None:
+        track = getattr(payload, "track", None)
+        exception = getattr(payload, "exception", None)
+        failure = LavalinkFailure.from_exception(exception)
+        node = getattr(player, "node", None)
+        node_name = self._node_identifier(node) if node is not None else "unknown"
+        guild_id = player.guild.id if player is not None and player.guild is not None else "unknown"
+        source = track_source_name(track) if track is not None else "unknown"
+        identifier = getattr(track, "identifier", "unknown") if track is not None else "unknown"
+        logger.error(
+            "Lavalink track exception guild=%s node=%s source=%s identifier=%s "
+            "severity=%s message=%s cause=%s",
+            guild_id,
+            node_name,
+            source,
+            identifier,
+            failure.severity[:100],
+            failure.message[:1000],
+            failure.cause[:1000],
+        )
+
+        if player is None or player.guild is None or track is None:
             return
-        logger.warning("Track failed in guild %s: %s", player.guild.id, payload.exception)
-        channel_id = self.announce_channels.get(player.guild.id)
-        channel = self.bot.get_channel(channel_id) if channel_id else None
-        if channel:
-            await channel.send("⚠️ That track failed on Lavalink; moving to the next item.")
+
+        guild_id = player.guild.id
+        track_key = track_identity(track)
+        self.cancel_pending_announcement(guild_id, track_key)
+
+        # Wavelink's loop mode deliberately returns the loaded track again.
+        # Temporarily bypass it for a failed source, then restore the user's
+        # mode only after a different track actually starts.
+        if player.queue.mode is wavelink.QueueMode.loop:
+            self.loop_modes_to_restore[guild_id] = wavelink.QueueMode.loop
+            player.queue.mode = wavelink.QueueMode.normal
+        elif player.queue.mode is wavelink.QueueMode.loop_all:
+            history = player.queue.history
+            if history is not None:
+                for index in range(history.count - 1, -1, -1):
+                    if track_identity(history.get_at(index)) == track_key:
+                        history.delete(index)
+                        break
+
+        fallback = await self.try_spotify_fallback(player, track)
+        self.schedule_failed_track_advance(player, track)
+        if fallback == "playing":
+            message = "⚠️ The Spotify mirror failed; trying a YouTube fallback now."
+        elif fallback == "queued":
+            message = "⚠️ The Spotify mirror failed; a YouTube fallback is queued next."
+        else:
+            capabilities = self.capabilities_for(player.node)
+            if source.startswith("youtube") and capabilities.probed and not capabilities.youtube_plugin_loaded:
+                message = (
+                    "⚠️ This YouTube track failed and the Lavalink node does not "
+                    "report the modern YouTube plugin. Skipping it."
+                )
+            else:
+                message = "⚠️ This track failed during playback; skipping it."
+        await self.send_failure_notice(guild_id, track_key, message)
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_stuck(self, payload: wavelink.TrackStuckEventPayload):
+        player = payload.player
+        track = getattr(payload, "track", None)
+        if player is None or player.guild is None or track is None:
+            return
+        threshold = getattr(payload, "threshold", "unknown")
+        logger.error(
+            "Lavalink track stuck guild=%s node=%s source=%s identifier=%s threshold_ms=%s",
+            player.guild.id,
+            self._node_identifier(player.node),
+            track_source_name(track),
+            getattr(track, "identifier", "unknown"),
+            threshold,
+        )
+        track_key = track_identity(track)
+        self.cancel_pending_announcement(player.guild.id, track_key)
+        await self.send_failure_notice(
+            player.guild.id,
+            track_key,
+            "⚠️ This track stopped producing audio; skipping it.",
+        )
+        with contextlib.suppress(Exception):
+            await player.skip(force=True)
+
+    @commands.Cog.listener()
+    async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload):
+        node = getattr(payload, "node", None)
+        if node is not None:
+            self.node_error = None
+            await self.refresh_node_capabilities(node)
+
+    @commands.Cog.listener()
+    async def on_wavelink_node_disconnected(
+        self, payload: wavelink.NodeDisconnectedEventPayload
+    ):
+        node = getattr(payload, "node", None)
+        identifier = self._node_identifier(node) if node is not None else "unknown"
+        self.node_error = f"Lavalink node {identifier} disconnected; reconnecting."
+        self.node_capabilities[identifier] = NodeCapabilities.unknown(
+            identifier, self.node_error
+        )
+        logger.warning("Lavalink node disconnected node=%s", identifier)
 
     @commands.Cog.listener()
     async def on_wavelink_inactive_player(self, player: wavelink.Player):
@@ -729,6 +1307,11 @@ class MusicCommands(commands.Cog):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         """Release Lavalink resources when the last human leaves a channel."""
+        if self.bot.user is not None and member.id == self.bot.user.id:
+            if before.channel is not None and after.channel is None:
+                self.release_guild(member.guild.id)
+            return
+
         if member.bot or before.channel is None or before.channel == after.channel:
             return
 
