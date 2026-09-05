@@ -4,6 +4,25 @@
 
 ## Unreleased
 
+### 🎧 Nexus 3.0.0-alpha.1 media update
+
+- Added a Lavalink v4 music system with 25 `/music` commands: connection,
+  search/URL/playlist playback, queue editing, previous/replay, seek, loop,
+  autoplay, volume, filters, interactive controls and per-guild cleanup.
+- Added a separately deployable Lavalink image with pinned YouTube and LavaSrc
+  plugins. Spotify URLs are resolved to a playable source; Spotify's API is not
+  treated as an audio stream.
+- Added opt-in `/voice` conversations using bounded Discord voice turns, Groq
+  Whisper transcription, the normal Nexus accuracy engine and Groq Orpheus
+  female speech. Raw audio is discarded after transcription.
+- Added guarded inbound Discord DAVE compatibility for the pinned alpha voice
+  receiver, controlled recovery after receiver failure, and media readiness in
+  `/health`.
+- Added clean per-guild handoff between music and live conversation because one
+  Discord bot connection cannot run both modes in the same guild at once.
+- Fixed Mistral startup detection for SDK builds that expose the client as
+  `mistralai.client.Mistral` instead of a top-level export.
+
 ### 🐛 Fixed
 
 - Spotify and YouTube search now remove request wording around a title without
@@ -53,7 +72,7 @@
 - **Natural Discord conversations** - every DM works without a mention; tagged
   DMs still work; server messages work through either a mention or a direct
   reply to Nexus.
-- **Complete environment templates** - `.env.example` now documents all 68
+- **Complete environment templates** - `.env.example` now documents all 90
   supported settings once, including direct and local providers, search tools,
   accuracy controls, memory, file access, Render and logging.
 
@@ -64,7 +83,7 @@
   use examples and limits where useful, fence generated code, and provide full
   files when a replacement is requested.
 - Nexus now starts with Discord's idle presence and the activity
-  `/ask  •  mention me`.
+  `/ask  •  /music  •  /voice`.
 - Explanations and solutions are more detailed without forcing simple chat into
   an embed or adding a decorative `Response` heading.
 
