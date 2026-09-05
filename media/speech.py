@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 import shutil
 import wave
 from functools import lru_cache
@@ -20,12 +21,31 @@ code, or long lists aloud. Put additional detail in the text response.
 """.strip()
 
 
-class SpeechModelTermsRequired(RuntimeError):
-    """The configured Groq speech model is blocked pending org approval."""
+class SpeechModelAccessError(RuntimeError):
+    """Groq denied access to a configured speech model."""
 
-    def __init__(self, model: str):
+    def __init__(
+        self,
+        model: str,
+        *,
+        code: str = "model_access_denied",
+        operation: str = "speech",
+    ):
         self.model = model
-        super().__init__(f"Groq model terms are not enabled for {model}.")
+        self.code = code
+        self.operation = operation
+        super().__init__(f"Groq denied {operation} access to {model} ({code}).")
+
+
+class SpeechModelTermsRequired(SpeechModelAccessError):
+    """The configured Groq speech model is blocked pending terms acceptance."""
+
+    def __init__(self, model: str, *, operation: str = "speech"):
+        super().__init__(
+            model,
+            code="model_terms_required",
+            operation=operation,
+        )
 
 
 def _speech_error_text(error: Exception) -> str:
@@ -35,10 +55,84 @@ def _speech_error_text(error: Exception) -> str:
     return f"{error!s} {body!r} {response!r}".casefold()
 
 
-def _raise_if_model_terms_required(error: Exception, model: str) -> None:
+def _speech_error_code(error: Exception) -> str:
+    """Extract a stable provider code without returning the raw response body."""
+    body = getattr(error, "body", None)
+    if isinstance(body, dict):
+        detail = body.get("error", body)
+        if isinstance(detail, dict) and detail.get("code"):
+            return str(detail["code"]).strip().casefold()
+
+    detail = _speech_error_text(error)
+    for candidate in (
+        "model_terms_required",
+        "permission_denied",
+        "access_denied",
+        "unauthorized",
+        "forbidden",
+    ):
+        if candidate in detail:
+            return candidate
+
+    match = re.search(r"['\"]code['\"]\s*:\s*['\"]([^'\"]+)", detail)
+    return match.group(1).casefold() if match else "model_access_denied"
+
+
+def classify_speech_access_error(
+    error: Exception,
+    model: str,
+    *,
+    operation: str = "speech",
+) -> SpeechModelAccessError | None:
+    """Translate only provider permission/terms failures into safe exceptions."""
     detail = _speech_error_text(error)
     if "model_terms_required" in detail or "requires terms acceptance" in detail:
-        raise SpeechModelTermsRequired(model) from error
+        return SpeechModelTermsRequired(model, operation=operation)
+
+    status = getattr(error, "status_code", None)
+    response = getattr(error, "response", None)
+    status = status or getattr(response, "status_code", None)
+    permission_markers = (
+        "permission_denied",
+        "permission denied",
+        "access_denied",
+        "access denied",
+        "does not have access",
+        "not authorized",
+        "unauthorized",
+        "forbidden",
+        "model permission",
+    )
+    if status in {401, 403} or any(marker in detail for marker in permission_markers):
+        return SpeechModelAccessError(
+            model,
+            code=_speech_error_code(error),
+            operation=operation,
+        )
+
+    return None
+
+
+def _raise_if_speech_access_denied(
+    error: Exception,
+    model: str,
+    *,
+    operation: str,
+) -> None:
+    classified = classify_speech_access_error(
+        error,
+        model,
+        operation=operation,
+    )
+    if classified is not None:
+        raise classified from error
+
+
+def _raise_if_model_terms_required(error: Exception, model: str) -> None:
+    """Backward-compatible helper retained for callers and regression tests."""
+    classified = classify_speech_access_error(error, model)
+    if isinstance(classified, SpeechModelTermsRequired):
+        raise classified from error
 
 
 def pcm_to_wav(pcm: bytes) -> bytes:
@@ -98,7 +192,11 @@ class GroqSpeech:
         try:
             response = await self.client.audio.transcriptions.create(**arguments)
         except Exception as error:  # noqa: BLE001 - translate provider configuration errors
-            _raise_if_model_terms_required(error, settings.voice_stt_model)
+            _raise_if_speech_access_denied(
+                error,
+                settings.voice_stt_model,
+                operation="stt",
+            )
             raise
 
         return (getattr(response, "text", "") or "").strip()
@@ -106,6 +204,11 @@ class GroqSpeech:
     async def synthesize(self, text: str) -> bytes:
         if not text or len(text) > 200:
             raise ValueError("Groq Orpheus speech input must contain 1-200 characters.")
+
+        if settings.voice_tts_provider != "groq":
+            raise RuntimeError(
+                f"Unsupported VOICE_TTS_PROVIDER: {settings.voice_tts_provider}"
+            )
 
         try:
             response = await self.client.audio.speech.create(
@@ -117,7 +220,11 @@ class GroqSpeech:
                 speed=settings.voice_tts_speed,
             )
         except Exception as error:  # noqa: BLE001 - translate provider configuration errors
-            _raise_if_model_terms_required(error, settings.voice_tts_model)
+            _raise_if_speech_access_denied(
+                error,
+                settings.voice_tts_model,
+                operation="tts",
+            )
             raise
 
         return await response.read()
