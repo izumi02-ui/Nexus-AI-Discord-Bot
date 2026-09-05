@@ -16,7 +16,7 @@ load_dotenv()
 # ==========================================
 
 PROJECT_NAME = "Project Nexus"
-VERSION = "3.0.0-alpha.1"
+VERSION = "1.4.0-alpha.V4"
 
 
 # ==========================================
