@@ -129,24 +129,28 @@ Music is isolated from the text pipeline:
 ```
 
 The bot owns command policy, queues and Discord embeds; Lavalink owns searching,
-decoding and audio transport. State is per guild, bounded, and released when
-the channel empties or the inactivity deadline expires.
+decoding and audio transport. Nexus probes each node's reported plugins/sources
+at startup and reconnect, delays automatic Now Playing cards past immediate
+source failures, and logs full structured track exceptions. State is per guild,
+bounded, and released when the channel empties or the inactivity deadline expires.
 
 Conversational voice deliberately reuses the normal AI engine:
 
 ```text
-Discord PCM → turn segmentation → Groq STT → engine.respond()
+Discord PCM → activity gate + turn segmentation → Groq STT → engine.respond()
                                          → Groq TTS → Discord PCM
 ```
 
 Only completed turns are transcribed, Nexus does not listen to its own output,
-and raw audio is never written to the database. Transcribed text follows the
+decoded silence cannot open a turn, repeated transcripts are suppressed, and
+raw audio is never written to the database. Transcribed text follows the
 same bounded conversation-memory policy as a typed message; the optional
 Discord text mirror is a separate setting. The pinned receive extension is
 guarded for Discord's inbound DAVE packet order. If compatibility cannot be
 established, live voice reports unavailable instead of accepting corrupt audio.
-Because Discord allows one voice client per guild, voice-chat and music modes
-hand the connection over explicitly.
+Because Discord allows one voice client per guild, a shared per-guild audio
+coordinator serializes the explicit handoff between voice-chat and music modes.
+Groq TTS access failures keep the live STT session active and fall back to text.
 
 ---
 
