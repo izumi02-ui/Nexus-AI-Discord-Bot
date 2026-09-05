@@ -1,7 +1,7 @@
 # 🌌 Project Nexus — System Design
 
-**Version:** Nexus 3.0.0-alpha.1
-**Status:** implementation reference for the `Nexus-V3` branch
+**Version:** Nexus 1.4.0-alpha.V4
+**Status:** implementation reference for the `Nexus-V4` branch
 
 ---
 
