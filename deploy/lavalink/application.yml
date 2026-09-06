@@ -8,8 +8,10 @@ lavalink:
       snapshot: false
     - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
       snapshot: false
+
   server:
     password: "${LAVALINK_PASSWORD:change-this-password}"
+
     sources:
       youtube: false
       bandcamp: true
@@ -19,6 +21,7 @@ lavalink:
       nico: false
       http: true
       local: false
+
     filters:
       volume: true
       equalizer: true
@@ -30,6 +33,7 @@ lavalink:
       rotation: true
       channelMix: true
       lowPass: true
+
     bufferDurationMs: 400
     frameBufferDurationMs: 5000
     opusEncodingQuality: 10
@@ -45,15 +49,19 @@ plugins:
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
+
     clients:
       - MUSIC
-      - ANDROID_VR
+      - TVHTML5_SIMPLY
+      - IOS
+      - MWEB
       - WEB
-      - WEBEMBEDDED
+
   lavasrc:
     providers:
       - "ytsearch:\"%ISRC%\""
       - "ytsearch:%QUERY%"
+
     sources:
       spotify: true
       applemusic: false
@@ -66,6 +74,7 @@ plugins:
       qobuz: false
       ytdlp: false
       jiosaavn: false
+
     lyrics-sources:
       spotify: false
       deezer: false
@@ -73,6 +82,7 @@ plugins:
       yandexmusic: false
       vkmusic: false
       lrcLib: false
+
     spotify:
       clientId: "${SPOTIFY_CLIENT_ID:}"
       clientSecret: "${SPOTIFY_CLIENT_SECRET:}"
