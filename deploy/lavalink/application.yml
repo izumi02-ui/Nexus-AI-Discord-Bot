@@ -40,7 +40,6 @@ lavalink:
     resamplingQuality: HIGH
     trackStuckThresholdMs: 10000
     useSeekGhosting: true
-    youtubePlaylistLoadLimit: 6
     playerUpdateInterval: 5
 
 plugins:
@@ -51,11 +50,11 @@ plugins:
     allowDirectPlaylistIds: true
 
     clients:
-      - MUSIC
       - TVHTML5_SIMPLY
-      - IOS
       - MWEB
       - WEB
+      - IOS
+      - MUSIC
 
   lavasrc:
     providers:
@@ -98,5 +97,7 @@ logging:
   level:
     root: INFO
     lavalink: INFO
-    dev.lavalink.youtube: ${LAVALINK_YOUTUBE_LOG_LEVEL:INFO}
-    com.github.topi314.lavasrc: ${LAVALINK_LAVASRC_LOG_LEVEL:INFO}
+
+    # Keep these DEBUG temporarily while fixing playback.
+    dev.lavalink.youtube: ${LAVALINK_YOUTUBE_LOG_LEVEL:DEBUG}
+    com.github.topi314.lavasrc: ${LAVALINK_LAVASRC_LOG_LEVEL:DEBUG}
