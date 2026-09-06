@@ -51,13 +51,12 @@ plugins:
 
     clients:
       - TVHTML5_SIMPLY
-      - MWEB
       - WEB
-      - IOS
-      - MUSIC
+      - MWEB
 
   lavasrc:
     providers:
+      - "scsearch:%QUERY%"
       - "ytsearch:\"%ISRC%\""
       - "ytsearch:%QUERY%"
 
@@ -86,10 +85,13 @@ plugins:
       clientId: "${SPOTIFY_CLIENT_ID:}"
       clientSecret: "${SPOTIFY_CLIENT_SECRET:}"
       countryCode: "${SPOTIFY_COUNTRY_CODE:US}"
+
       playlistLoadLimit: 6
       albumLoadLimit: 6
       resolveArtistsInSearch: true
       localFiles: false
+
+      preferAnonymousToken: false
       preferPartnerApi: false
       preferV1SearchApi: false
 
@@ -97,7 +99,5 @@ logging:
   level:
     root: INFO
     lavalink: INFO
-
-    # Keep these DEBUG temporarily while fixing playback.
     dev.lavalink.youtube: ${LAVALINK_YOUTUBE_LOG_LEVEL:DEBUG}
     com.github.topi314.lavasrc: ${LAVALINK_LAVASRC_LOG_LEVEL:DEBUG}
