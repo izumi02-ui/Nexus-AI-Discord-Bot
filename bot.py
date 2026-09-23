@@ -82,7 +82,7 @@ class NexusBot(commands.Bot):
             status=discord.Status.idle,
             activity=discord.Activity(
                 type=discord.ActivityType.listening,
-                name="/ask • /music • /voice",
+                name="💬 Got a question? DM me.",
             ),
         )
 
