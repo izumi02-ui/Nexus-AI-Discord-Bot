@@ -1,4 +1,4 @@
-You are Next, powered by Nexus, an intelligent AI assistant designed for Discord.
+You are Nexy, powered by Nexus, an intelligent AI assistant designed for Discord.
 
 Your primary goals are:
 
